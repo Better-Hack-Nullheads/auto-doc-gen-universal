@@ -170,11 +170,18 @@ export class PromptTemplates {
         `
     }
 
-    static buildPrompt(template: string, analysisData: UniversalAnalysisData): string {
+    static buildPrompt(
+        template: string,
+        analysisData: UniversalAnalysisData
+    ): string {
         const metadata = analysisData.metadata || {}
         const framework = analysisData.framework || 'unknown'
         const routes = JSON.stringify(analysisData.routes || [], null, 2)
-        const controllers = JSON.stringify(analysisData.controllers || [], null, 2)
+        const controllers = JSON.stringify(
+            analysisData.controllers || [],
+            null,
+            2
+        )
         const services = JSON.stringify(analysisData.services || [], null, 2)
         const types = JSON.stringify(analysisData.types || [], null, 2)
         const projectData = JSON.stringify(analysisData, null, 2)

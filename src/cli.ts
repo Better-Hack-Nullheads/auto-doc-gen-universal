@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander'
-import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
+import { MongoDBAdapter } from './adapters/mongodb-adapter'
 import { FrameworkDetector } from './core/framework-detector'
 import { UniversalAnalyzer } from './core/universal-analyzer'
 import { AIService } from './services/ai-service'
-import { MongoDBAdapter } from './adapters/mongodb-adapter'
 import { AIConfig } from './types/ai.types'
 
 const program = new Command()
@@ -39,10 +39,14 @@ program
                 console.log('📊 Analysis Results:')
                 console.log(`   Framework: ${result.framework}`)
                 console.log(`   Routes: ${result.metadata.totalRoutes}`)
-                console.log(`   Controllers: ${result.metadata.totalControllers}`)
+                console.log(
+                    `   Controllers: ${result.metadata.totalControllers}`
+                )
                 console.log(`   Services: ${result.metadata.totalServices}`)
                 console.log(`   Types: ${result.types.length}`)
-                console.log(`   Analysis Time: ${result.metadata.analysisTime}s`)
+                console.log(
+                    `   Analysis Time: ${result.metadata.analysisTime}s`
+                )
             }
 
             // Save raw analysis
@@ -59,14 +63,14 @@ program
                         collections: {
                             documentation: 'documentation',
                             endpoints: 'endpoints',
-                            types: 'types'
+                            types: 'types',
                         },
                         mapping: {
                             createCollections: true,
-                            includeTypeSchemas: true
-                        }
+                            includeTypeSchemas: true,
+                        },
                     })
-                    
+
                     await dbAdapter.connect()
                     await dbAdapter.saveAnalysis(result)
                     await dbAdapter.disconnect()
@@ -91,10 +95,18 @@ program
     .description('Generate AI documentation from analysis file')
     .argument('<input>', 'Analysis JSON file path')
     .option('-o, --output <file>', 'Output markdown file path')
-    .option('--provider <provider>', 'AI provider (google, openai, anthropic)', 'google')
+    .option(
+        '--provider <provider>',
+        'AI provider (google, openai, anthropic)',
+        'google'
+    )
     .option('--model <model>', 'AI model to use')
     .option('--api-key <key>', 'AI API key')
-    .option('--template <template>', 'Prompt template (default, security, performance, architecture)', 'default')
+    .option(
+        '--template <template>',
+        'Prompt template (default, security, performance, architecture)',
+        'default'
+    )
     .option('--save-to-db', 'Save AI documentation to MongoDB')
     .option('-v, --verbose', 'Verbose output')
     .action(async (input, options) => {
@@ -142,26 +154,32 @@ program
 async function generateAIDocumentation(analysisData: any, options: any) {
     try {
         // Get API key from options or environment
-        const apiKey = options.apiKey || 
-                      process.env['GOOGLE_AI_API_KEY'] || 
-                      process.env['OPENAI_API_KEY'] || 
-                      process.env['ANTHROPIC_API_KEY']
+        const apiKey =
+            options.apiKey ||
+            process.env['GOOGLE_AI_API_KEY'] ||
+            process.env['OPENAI_API_KEY'] ||
+            process.env['ANTHROPIC_API_KEY']
 
         if (!apiKey) {
-            console.error('❌ AI API key required. Set via --api-key or environment variable.')
+            console.error(
+                '❌ AI API key required. Set via --api-key or environment variable.'
+            )
             process.exit(1)
         }
 
         // Create AI config
         const aiConfig: AIConfig = {
             provider: options.provider || 'google',
-            model: options.model || getDefaultModel(options.provider || 'google'),
+            model:
+                options.model || getDefaultModel(options.provider || 'google'),
             apiKey: apiKey,
             temperature: 0.7,
-            maxTokens: 4000
+            maxTokens: 4000,
         }
 
-        console.log(`🤖 Generating AI documentation with ${aiConfig.provider}/${aiConfig.model}...`)
+        console.log(
+            `🤖 Generating AI documentation with ${aiConfig.provider}/${aiConfig.model}...`
+        )
 
         const aiService = new AIService(aiConfig)
         const documentation = await aiService.analyzeProject(analysisData)
@@ -174,7 +192,8 @@ async function generateAIDocumentation(analysisData: any, options: any) {
 
         // Generate output filename
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-        const outputFile = options.output || join(outputDir, `ai-analysis-${timestamp}.md`)
+        const outputFile =
+            options.output || join(outputDir, `ai-analysis-${timestamp}.md`)
 
         // Save AI documentation
         writeFileSync(outputFile, documentation)
@@ -190,14 +209,14 @@ async function generateAIDocumentation(analysisData: any, options: any) {
                     collections: {
                         documentation: 'documentation',
                         endpoints: 'endpoints',
-                        types: 'types'
+                        types: 'types',
                     },
                     mapping: {
                         createCollections: true,
-                        includeTypeSchemas: true
-                    }
+                        includeTypeSchemas: true,
+                    },
                 })
-                
+
                 await dbAdapter.connect()
                 await dbAdapter.saveDocumentation({
                     content: documentation,
@@ -208,8 +227,9 @@ async function generateAIDocumentation(analysisData: any, options: any) {
                     metadata: {
                         framework: analysisData.framework,
                         totalRoutes: analysisData.metadata?.totalRoutes || 0,
-                        totalControllers: analysisData.metadata?.totalControllers || 0
-                    }
+                        totalControllers:
+                            analysisData.metadata?.totalControllers || 0,
+                    },
                 })
                 await dbAdapter.disconnect()
                 console.log('✅ AI documentation saved to MongoDB')

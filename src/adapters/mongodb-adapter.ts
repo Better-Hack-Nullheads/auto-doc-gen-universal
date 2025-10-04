@@ -269,7 +269,9 @@ export class MongoDBAdapter {
             .toArray()
     }
 
-    async getDocumentationByFramework(framework: string): Promise<WithId<Document>[]> {
+    async getDocumentationByFramework(
+        framework: string
+    ): Promise<WithId<Document>[]> {
         if (!this.isConnected) {
             throw new Error('Database not connected. Call connect() first.')
         }
