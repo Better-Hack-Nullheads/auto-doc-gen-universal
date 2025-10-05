@@ -577,20 +577,27 @@ program
     .option('-o, --output <file>', 'Output file path')
     .action(async (openApiPath, options) => {
         try {
-            console.log('🤖 Generating AI documentation from Scalar OpenAPI spec...')
-            
+            console.log(
+                '🤖 Generating AI documentation from Scalar OpenAPI spec...'
+            )
+
             const config = configManager.getConfig()
             const aiService = new AIService(config.ai)
             const scalarAIService = new ScalarAIService(aiService)
-            
-            const enhancedDocs = await scalarAIService.generateEnhancedDocs(openApiPath)
-            
+
+            const enhancedDocs = await scalarAIService.generateEnhancedDocs(
+                openApiPath
+            )
+
             const outputPath = options.output || 'docs/scalar-ai-docs.md'
             writeFileSync(outputPath, enhancedDocs)
-            
+
             console.log(`✅ Enhanced documentation saved to ${outputPath}`)
         } catch (error) {
-            console.error('❌ Scalar AI documentation generation failed:', error)
+            console.error(
+                '❌ Scalar AI documentation generation failed:',
+                error
+            )
             process.exit(1)
         }
     })
@@ -599,63 +606,85 @@ program
     .command('scalar-ai-chunks')
     .description('Generate chunked AI documentation from Scalar OpenAPI spec')
     .argument('<openapi-path>', 'Path to OpenAPI spec file')
-    .option('-o, --output-dir <dir>', 'Output directory for chunks', 'docs/chunks')
+    .option(
+        '-o, --output-dir <dir>',
+        'Output directory for chunks',
+        'docs/chunks'
+    )
     .action(async (openApiPath, options) => {
         try {
-            console.log('🤖 Generating chunked AI documentation from Scalar OpenAPI spec...')
-            
+            console.log(
+                '🤖 Generating chunked AI documentation from Scalar OpenAPI spec...'
+            )
+
             const config = configManager.getConfig()
             const aiService = new AIService(config.ai)
             const scalarAIService = new ScalarAIService(aiService)
-            
+
             // Get transformed data from OpenAPI spec
             const aiInput = scalarAIService.getTransformedData(openApiPath)
-            
+
             // Create output directory
             const outputDir = options.outputDir || 'docs/chunks'
             if (!existsSync(outputDir)) {
                 mkdirSync(outputDir, { recursive: true })
             }
-            
+
             // Group routes by controller (using existing logic)
             const chunks = groupRoutesByController(
                 aiInput.routes,
                 aiInput.services,
                 aiInput.controllers
             )
-            
-            console.log(`📊 Found ${Object.keys(chunks).length} modules: ${Object.keys(chunks).join(', ')}`)
-            
+
+            console.log(
+                `📊 Found ${Object.keys(chunks).length} modules: ${Object.keys(
+                    chunks
+                ).join(', ')}`
+            )
+
             // Generate documentation for each chunk
             for (const [moduleName, moduleRoutes] of Object.entries(chunks)) {
-                console.log(`📝 Generating documentation for ${moduleName} module...`)
-                
+                console.log(
+                    `📝 Generating documentation for ${moduleName} module...`
+                )
+
                 const moduleData = {
                     ...aiInput,
                     routes: moduleRoutes,
-                    metadata: { ...aiInput.metadata, moduleName }
+                    metadata: { ...aiInput.metadata, moduleName },
                 }
-                
+
                 // Use enhanced prompt for OpenAPI data
-                const enhancedPrompt = ScalarPromptTemplates.buildChunkedOpenAPIPrompt(moduleData)
-                const moduleDocs = await aiService.generateDocumentation(enhancedPrompt)
-                
+                const enhancedPrompt =
+                    ScalarPromptTemplates.buildChunkedOpenAPIPrompt(moduleData)
+                const moduleDocs = await aiService.generateDocumentation(
+                    enhancedPrompt
+                )
+
                 // Save documentation
                 const docPath = join(outputDir, `${moduleName}.md`)
                 writeFileSync(docPath, moduleDocs)
-                
+
                 // Save analysis data
-                const analysisPath = join(outputDir, `${moduleName}-analysis.json`)
+                const analysisPath = join(
+                    outputDir,
+                    `${moduleName}-analysis.json`
+                )
                 writeFileSync(analysisPath, JSON.stringify(moduleData, null, 2))
-                
-                console.log(`✅ ${moduleName} documentation saved to ${docPath}`)
+
+                console.log(
+                    `✅ ${moduleName} documentation saved to ${docPath}`
+                )
             }
-            
+
             console.log(`🎉 Chunked documentation generation completed!`)
             console.log(`📁 Output directory: ${outputDir}`)
-            
         } catch (error) {
-            console.error('❌ Scalar AI chunked documentation generation failed:', error)
+            console.error(
+                '❌ Scalar AI chunked documentation generation failed:',
+                error
+            )
             process.exit(1)
         }
     })
