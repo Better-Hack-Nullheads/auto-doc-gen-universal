@@ -319,7 +319,11 @@ async function generateChunkedAIDocumentation(
         }
 
         // Group routes by controller/module
-        const chunks = groupRoutesByController(analysisData.routes)
+        const chunks = groupRoutesByController(
+            analysisData.routes,
+            analysisData.services,
+            analysisData.types
+        )
 
         console.log(
             `📦 Found ${Object.keys(chunks).length} modules to document`
@@ -421,54 +425,126 @@ function getRelatedTypes(moduleName: string, types: any[]): any[] {
     })
 }
 
-function groupRoutesByController(routes: any[]): Record<string, any[]> {
+function groupRoutesByController(
+    routes: any[],
+    services: any[] = [],
+    types: any[] = []
+): Record<string, any[]> {
     const chunks: Record<string, any[]> = {}
 
+    // First, extract module names from services and types
+    const detectedModules = new Set<string>()
+
+    // Extract modules from service names
+    services.forEach((service) => {
+        if (service.name) {
+            const moduleName = extractModuleFromName(service.name)
+            if (moduleName) {
+                detectedModules.add(moduleName)
+            }
+        }
+    })
+
+    // Extract modules from type names
+    types.forEach((type) => {
+        if (type.name) {
+            const moduleName = extractModuleFromName(type.name)
+            if (moduleName) {
+                detectedModules.add(moduleName)
+            }
+        }
+    })
+
+    // Group routes by detected modules or fallback to generic grouping
     routes.forEach((route) => {
-        // Extract module name from route path or handler
         let moduleName = 'unknown'
 
-        if (route.handler) {
-            // Try to extract from handler name (e.g., "findOne" -> "products")
-            if (route.handler.includes('Product')) {
-                moduleName = 'products'
-            } else if (route.handler.includes('User')) {
-                moduleName = 'users'
-            } else if (route.handler.includes('App')) {
+        // Strategy 1: Try to match against detected modules
+        for (const detectedModule of detectedModules) {
+            if (
+                route.handler &&
+                route.handler
+                    .toLowerCase()
+                    .includes(detectedModule.toLowerCase())
+            ) {
+                moduleName = detectedModule
+                break
+            }
+            if (
+                route.path &&
+                route.path.toLowerCase().includes(detectedModule.toLowerCase())
+            ) {
+                moduleName = detectedModule
+                break
+            }
+        }
+
+        // Strategy 2: Try to extract from handler name using generic patterns
+        if (moduleName === 'unknown' && route.handler) {
+            const handlerLower = route.handler.toLowerCase()
+            // Look for common CRUD patterns
+            if (
+                handlerLower.includes('create') ||
+                handlerLower.includes('add')
+            ) {
+                moduleName = 'create'
+            } else if (
+                handlerLower.includes('find') ||
+                handlerLower.includes('get') ||
+                handlerLower.includes('list')
+            ) {
+                moduleName = 'read'
+            } else if (
+                handlerLower.includes('update') ||
+                handlerLower.includes('edit') ||
+                handlerLower.includes('modify')
+            ) {
+                moduleName = 'update'
+            } else if (
+                handlerLower.includes('delete') ||
+                handlerLower.includes('remove')
+            ) {
+                moduleName = 'delete'
+            } else if (
+                handlerLower.includes('hello') ||
+                handlerLower.includes('health') ||
+                handlerLower.includes('status')
+            ) {
                 moduleName = 'app'
             }
         }
 
-        // Fallback: group by common path patterns
+        // Strategy 3: Try to extract from path structure
+        if (moduleName === 'unknown' && route.path) {
+            const pathSegments = route.path.split('/').filter(Boolean)
+            if (pathSegments.length > 0) {
+                // Skip parameter segments like :id
+                const validSegments = pathSegments.filter(
+                    (segment: string) => !segment.startsWith(':')
+                )
+                if (validSegments.length > 0) {
+                    moduleName = validSegments[0]
+                }
+            }
+        }
+
+        // Strategy 4: Group by HTTP method patterns
         if (moduleName === 'unknown') {
-            if (route.path && route.path.includes('email')) {
-                moduleName = 'users'
-            } else if (
-                route.path &&
-                (route.path.includes('activate') ||
-                    route.path.includes('deactivate'))
-            ) {
-                moduleName = 'users'
-            } else if (
-                route.path === '/' ||
-                route.path === '' ||
-                route.path === ':id'
+            if (
+                route.method === 'GET' &&
+                (route.path === '/' || route.path === '')
             ) {
                 moduleName = 'app'
+            } else if (route.method === 'POST') {
+                moduleName = 'create'
+            } else if (route.method === 'GET') {
+                moduleName = 'read'
+            } else if (route.method === 'PATCH' || route.method === 'PUT') {
+                moduleName = 'update'
+            } else if (route.method === 'DELETE') {
+                moduleName = 'delete'
             } else {
-                // Try to infer from the route structure
-                const pathSegments = route.path.split('/').filter(Boolean)
-                if (pathSegments.length > 0) {
-                    // Skip parameter segments like :id
-                    const validSegments = pathSegments.filter(
-                        (segment: string) => !segment.startsWith(':')
-                    )
-                    if (validSegments.length > 0) {
-                        moduleName = validSegments[0]
-                    } else {
-                        moduleName = 'app'
-                    }
-                }
+                moduleName = 'misc'
             }
         }
 
@@ -482,6 +558,24 @@ function groupRoutesByController(routes: any[]): Record<string, any[]> {
     })
 
     return chunks
+}
+
+function extractModuleFromName(name: string): string | null {
+    if (!name) return null
+
+    // Remove common suffixes like "Service", "Controller", "Dto", etc.
+    const cleanName = name
+        .replace(/(Service|Controller|Dto|Entity|Model|Type|Interface)$/i, '')
+        .toLowerCase()
+
+    // Convert to plural if it's a singular noun
+    if (cleanName.endsWith('y')) {
+        return cleanName.slice(0, -1) + 'ies'
+    } else if (cleanName.endsWith('s')) {
+        return cleanName
+    } else {
+        return cleanName + 's'
+    }
 }
 
 function getAPIKeyFromEnv(provider: string): string {
