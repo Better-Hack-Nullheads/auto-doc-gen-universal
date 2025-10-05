@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>AutoDocGen Universal - Building</title>
+        <link rel="stylesheet" href="/styles.css" />
+    </head>
+    <body>
+        <div class="container">
+            <div class="logo">📚 AutoDocGen Universal</div>
+            <div class="status">
+                <span class="status-indicator" id="statusIndicator"></span>
+                <span id="statusText">Building Documentation...</span>
+            </div>
+
+            <div class="spinner"></div>
+
+            <div class="info" id="mainInfo">
+                <h3>🔄 Watch Mode Active</h3>
+                <p>
+                    <strong>Status:</strong>
+                    <span id="status">Analyzing project files...</span>
+                </p>
+                <p>
+                    <strong>Framework:</strong>
+                    <span id="framework">Detecting...</span>
+                </p>
+                <p>
+                    <strong>Last Update:</strong>
+                    <span id="lastUpdate">Just now</span>
+                </p>
+                <p>
+                    <strong>Files Processed:</strong>
+                    <span id="filesProcessed">0</span>
+                </p>
+
+                <div class="stats-grid" id="statsGrid" style="display: none">
+                    <div class="stat-card">
+                        <span class="stat-number" id="totalRoutes">0</span>
+                        <span class="stat-label">Routes</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-number" id="totalControllers">0</span>
+                        <span class="stat-label">Controllers</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-number" id="totalServices">0</span>
+                        <span class="stat-label">Services</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-number" id="totalTypes">0</span>
+                        <span class="stat-label">Types</span>
+                    </div>
+                </div>
+
+                <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                </div>
+            </div>
+
+            <div class="footer">
+                <p>AutoDocGen Universal is watching your project for changes</p>
+                <p class="auto-refresh">
+                    This page refreshes automatically every 5 seconds
+                </p>
+            </div>
+        </div>
+
+        <script src="/app.js"></script>
+    </body>
+</html>

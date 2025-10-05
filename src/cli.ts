@@ -8,7 +8,9 @@ import { ConfigManager } from './config/config'
 import { FrameworkDetector } from './core/framework-detector'
 import { UniversalAnalyzer } from './core/universal-analyzer'
 import { AIService } from './services/ai-service'
+import { MongoDBDataService } from './services/mongodb-data-service'
 import { ScalarAIService } from './services/scalar-ai-service'
+import { WatchService } from './services/watch-service'
 
 // Environment variables loaded by ConfigManager
 
@@ -323,6 +325,210 @@ program
             }
         } catch (error) {
             console.error('❌ Detection failed:', error)
+            process.exit(1)
+        }
+    })
+
+program
+    .command('watch')
+    .description('Watch project files and automatically analyze on changes')
+    .argument(
+        '[path]',
+        'Project path to watch (default: current directory)',
+        '.'
+    )
+    .option('-p, --port <port>', 'Port for build indicator server', '3001')
+    .option('-d, --debounce <ms>', 'Debounce delay in milliseconds', '1000')
+    .option('--no-auto-analyze', 'Disable automatic analysis on file changes')
+    .option('--ignore <patterns>', 'Comma-separated ignore patterns')
+    .action(async (path, options) => {
+        try {
+            console.log('👀 Starting watch mode...')
+            console.log(`📁 Watching: ${path}`)
+            console.log(
+                `🌐 Build indicator will be available at http://localhost:${options.port}`
+            )
+
+            const watchOptions = {
+                path,
+                port: parseInt(options.port),
+                debounceMs: parseInt(options.debounce),
+                autoAnalyze: options.autoAnalyze,
+                ignorePatterns: options.ignore
+                    ? options.ignore.split(',')
+                    : undefined,
+            }
+
+            const watchService = new WatchService(watchOptions)
+
+            // Handle graceful shutdown
+            const shutdown = async () => {
+                console.log('\n🛑 Shutting down watch service...')
+                await watchService.stop()
+                process.exit(0)
+            }
+
+            process.on('SIGINT', shutdown)
+            process.on('SIGTERM', shutdown)
+
+            await watchService.start()
+        } catch (error) {
+            console.error('❌ Watch mode failed:', error)
+            process.exit(1)
+        }
+    })
+
+// MongoDB Data Commands
+program
+    .command('db:latest')
+    .description('Get latest documents from MongoDB')
+    .option('-l, --limit <number>', 'Number of documents to fetch', '10')
+    .action(async (options) => {
+        try {
+            const dataService = new MongoDBDataService()
+            const documents = await dataService.getLatestDocuments(
+                parseInt(options.limit)
+            )
+
+            console.log(`📊 Found ${documents.length} latest documents:`)
+            console.log('')
+
+            documents.forEach((doc, index) => {
+                console.log(
+                    `${index + 1}. ${doc.source} (${doc.provider}/${doc.model})`
+                )
+                console.log(`   📅 ${doc.timestamp.toISOString()}`)
+                console.log(`   🆔 Run ID: ${doc.runId || 'N/A'}`)
+                console.log(
+                    `   📝 Content: ${doc.content.substring(0, 100)}...`
+                )
+                console.log('')
+            })
+        } catch (error) {
+            console.error('❌ Failed to fetch latest documents:', error)
+            process.exit(1)
+        }
+    })
+
+program
+    .command('db:stats')
+    .description('Get analysis statistics from MongoDB')
+    .action(async () => {
+        try {
+            const dataService = new MongoDBDataService()
+            const stats = await dataService.getAnalysisStats()
+
+            console.log('📊 Analysis Statistics:')
+            console.log('')
+            console.log(`📄 Total Documents: ${stats.totalDocuments}`)
+            console.log(`🆔 Latest Run: ${stats.latestRun || 'N/A'}`)
+            console.log('')
+
+            console.log('🏗️ Frameworks:')
+            Object.entries(stats.frameworks).forEach(([framework, count]) => {
+                console.log(`   ${framework}: ${count} documents`)
+            })
+            console.log('')
+
+            console.log('🤖 AI Providers:')
+            Object.entries(stats.providers).forEach(([provider, count]) => {
+                console.log(`   ${provider}: ${count} documents`)
+            })
+        } catch (error) {
+            console.error('❌ Failed to fetch statistics:', error)
+            process.exit(1)
+        }
+    })
+
+program
+    .command('db:run <runId>')
+    .description('Get documents by run ID')
+    .action(async (runId) => {
+        try {
+            const dataService = new MongoDBDataService()
+            const documents = await dataService.getDocumentsByRunId(runId)
+
+            console.log(
+                `📊 Found ${documents.length} documents for run ${runId}:`
+            )
+            console.log('')
+
+            documents.forEach((doc, index) => {
+                console.log(`${index + 1}. ${doc.source}`)
+                console.log(`   📅 ${doc.timestamp.toISOString()}`)
+                console.log(`   🤖 ${doc.provider}/${doc.model}`)
+                console.log(
+                    `   📝 Content: ${doc.content.substring(0, 100)}...`
+                )
+                console.log('')
+            })
+        } catch (error) {
+            console.error('❌ Failed to fetch documents by run ID:', error)
+            process.exit(1)
+        }
+    })
+
+program
+    .command('db:chunks')
+    .description('Get unique chunk timestamps')
+    .action(async () => {
+        try {
+            const dataService = new MongoDBDataService()
+            const chunkTimes = await dataService.getUniqueChunkTimes()
+
+            console.log(`📊 Found ${chunkTimes.length} unique chunk times:`)
+            console.log('')
+
+            chunkTimes.forEach((chunkTime, index) => {
+                console.log(`${index + 1}. ${chunkTime}`)
+            })
+        } catch (error) {
+            console.error('❌ Failed to fetch chunk times:', error)
+            process.exit(1)
+        }
+    })
+
+program
+    .command('db:chunk <chunkTime>')
+    .description('Get documents by chunk timestamp')
+    .action(async (chunkTime) => {
+        try {
+            const dataService = new MongoDBDataService()
+            const documents = await dataService.getDocumentsByChunkTime(
+                chunkTime
+            )
+
+            console.log(
+                `📊 Found ${documents.length} documents for chunk ${chunkTime}:`
+            )
+            console.log('')
+
+            documents.forEach((doc, index) => {
+                console.log(`${index + 1}. ${doc.source}`)
+                console.log(`   📅 ${doc.timestamp.toISOString()}`)
+                console.log(`   🤖 ${doc.provider}/${doc.model}`)
+                console.log(
+                    `   📝 Content: ${doc.content.substring(0, 100)}...`
+                )
+                console.log('')
+            })
+        } catch (error) {
+            console.error('❌ Failed to fetch documents by chunk time:', error)
+            process.exit(1)
+        }
+    })
+
+program
+    .command('db:count')
+    .description('Get total document count')
+    .action(async () => {
+        try {
+            const dataService = new MongoDBDataService()
+            const count = await dataService.getDocumentCount()
+
+            console.log(`📊 Total documents in database: ${count}`)
+        } catch (error) {
+            console.error('❌ Failed to get document count:', error)
             process.exit(1)
         }
     })

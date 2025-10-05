@@ -1,4 +1,11 @@
-import { Db, Document, InsertOneResult, MongoClient, WithId } from 'mongodb'
+import {
+    Db,
+    Document,
+    InsertOneResult,
+    MongoClient,
+    ObjectId,
+    WithId,
+} from 'mongodb'
 
 interface DatabaseConfig {
     type: string
@@ -348,5 +355,132 @@ export class MongoDBAdapter {
         }
 
         return combinedRun
+    }
+
+    // Additional methods for MongoDBDataService
+    getCollection(collectionName: string) {
+        if (!this.isConnected) {
+            throw new Error('Database not connected. Call connect() first.')
+        }
+        return this.db.collection(collectionName)
+    }
+
+    async getDocumentCount(): Promise<number> {
+        if (!this.isConnected) {
+            throw new Error('Database not connected. Call connect() first.')
+        }
+        return await this.db
+            .collection(this.config.collections.documentation)
+            .countDocuments()
+    }
+
+    async getDocumentsByRunId(runId: string): Promise<WithId<Document>[]> {
+        if (!this.isConnected) {
+            throw new Error('Database not connected. Call connect() first.')
+        }
+        return await this.db
+            .collection(this.config.collections.documentation)
+            .find({ 'metadata.runId': runId })
+            .sort({ timestamp: -1 })
+            .toArray()
+    }
+
+    async getUniqueChunkTimes(): Promise<string[]> {
+        if (!this.isConnected) {
+            throw new Error('Database not connected. Call connect() first.')
+        }
+        const chunkTimes = await this.db
+            .collection(this.config.collections.documentation)
+            .distinct('metadata.chunkTimestamp')
+
+        return chunkTimes
+            .filter((time: any) => time != null)
+            .sort()
+            .reverse()
+    }
+
+    async getDocumentsByChunkTime(
+        chunkTime: string
+    ): Promise<WithId<Document>[]> {
+        if (!this.isConnected) {
+            throw new Error('Database not connected. Call connect() first.')
+        }
+        return await this.db
+            .collection(this.config.collections.documentation)
+            .find({ 'metadata.chunkTimestamp': chunkTime })
+            .sort({ timestamp: -1 })
+            .toArray()
+    }
+
+    async updateDocumentContent(
+        id: string,
+        content: string
+    ): Promise<WithId<Document> | null> {
+        if (!this.isConnected) {
+            throw new Error('Database not connected. Call connect() first.')
+        }
+        const result = await this.db
+            .collection(this.config.collections.documentation)
+            .findOneAndUpdate(
+                { _id: new ObjectId(id) },
+                { $set: { content } },
+                { returnDocument: 'after' }
+            )
+        return result
+    }
+
+    async getAnalysisStats(): Promise<{
+        totalDocuments: number
+        frameworks: { [key: string]: number }
+        providers: { [key: string]: number }
+        latestRun: string | null
+    }> {
+        if (!this.isConnected) {
+            throw new Error('Database not connected. Call connect() first.')
+        }
+
+        const [totalDocuments, frameworkStats, providerStats, latestDoc] =
+            await Promise.all([
+                this.db
+                    .collection(this.config.collections.documentation)
+                    .countDocuments(),
+                this.db
+                    .collection(this.config.collections.documentation)
+                    .aggregate([
+                        {
+                            $group: {
+                                _id: '$metadata.framework',
+                                count: { $sum: 1 },
+                            },
+                        },
+                    ])
+                    .toArray(),
+                this.db
+                    .collection(this.config.collections.documentation)
+                    .aggregate([
+                        { $group: { _id: '$provider', count: { $sum: 1 } } },
+                    ])
+                    .toArray(),
+                this.db
+                    .collection(this.config.collections.documentation)
+                    .findOne({}, { sort: { timestamp: -1 } }),
+            ])
+
+        const frameworks: { [key: string]: number } = {}
+        frameworkStats.forEach((stat: any) => {
+            frameworks[stat._id || 'unknown'] = stat.count
+        })
+
+        const providers: { [key: string]: number } = {}
+        providerStats.forEach((stat: any) => {
+            providers[stat._id || 'unknown'] = stat.count
+        })
+
+        return {
+            totalDocuments,
+            frameworks,
+            providers,
+            latestRun: latestDoc?.['runId'] || null,
+        }
     }
 }
