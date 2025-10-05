@@ -1,0 +1,375 @@
+{
+  "framework": "nestjs",
+  "routes": [
+    {
+      "path": "analyze",
+      "method": "GET",
+      "handler": "analyzeProject",
+      "middleware": [],
+      "parameters": [
+        {
+          "name": "req",
+          "type": "Request",
+          "optional": false
+        },
+        {
+          "name": "res",
+          "type": "Response",
+          "optional": false
+        },
+        {
+          "name": "next",
+          "type": "NextFunction",
+          "optional": true
+        }
+      ],
+      "framework": "nestjs"
+    },
+    {
+      "path": "analysis-results",
+      "method": "GET",
+      "handler": "getAnalysisResults",
+      "middleware": [],
+      "parameters": [
+        {
+          "name": "req",
+          "type": "Request",
+          "optional": false
+        },
+        {
+          "name": "res",
+          "type": "Response",
+          "optional": false
+        },
+        {
+          "name": "next",
+          "type": "NextFunction",
+          "optional": true
+        }
+      ],
+      "framework": "nestjs"
+    },
+    {
+      "path": ":id",
+      "method": "GET",
+      "handler": "findOne",
+      "middleware": [],
+      "parameters": [
+        {
+          "name": "req",
+          "type": "Request",
+          "optional": false
+        },
+        {
+          "name": "res",
+          "type": "Response",
+          "optional": false
+        },
+        {
+          "name": "next",
+          "type": "NextFunction",
+          "optional": true
+        }
+      ],
+      "framework": "nestjs"
+    },
+    {
+      "path": ":id",
+      "method": "PATCH",
+      "handler": "update",
+      "middleware": [],
+      "parameters": [
+        {
+          "name": "req",
+          "type": "Request",
+          "optional": false
+        },
+        {
+          "name": "res",
+          "type": "Response",
+          "optional": false
+        },
+        {
+          "name": "next",
+          "type": "NextFunction",
+          "optional": true
+        }
+      ],
+      "framework": "nestjs"
+    },
+    {
+      "path": ":id",
+      "method": "DELETE",
+      "handler": "remove",
+      "middleware": [],
+      "parameters": [
+        {
+          "name": "req",
+          "type": "Request",
+          "optional": false
+        },
+        {
+          "name": "res",
+          "type": "Response",
+          "optional": false
+        },
+        {
+          "name": "next",
+          "type": "NextFunction",
+          "optional": true
+        }
+      ],
+      "framework": "nestjs"
+    }
+  ],
+  "controllers": [
+    {
+      "name": "AppController",
+      "routes": [
+        {
+          "path": "/",
+          "method": "GET",
+          "handler": "getHello",
+          "middleware": [],
+          "parameters": [],
+          "framework": "nestjs"
+        },
+        {
+          "path": "analyze",
+          "method": "GET",
+          "handler": "analyzeProject",
+          "middleware": [],
+          "parameters": [],
+          "framework": "nestjs"
+        },
+        {
+          "path": "analysis-results",
+          "method": "GET",
+          "handler": "getAnalysisResults",
+          "middleware": [],
+          "parameters": [],
+          "framework": "nestjs"
+        }
+      ],
+      "framework": "nestjs",
+      "filePath": "C:/Users/LENOVO/Desktop/Better-hack/backend/src/app.controller.ts"
+    },
+    {
+      "name": "ProductsController",
+      "routes": [
+        {
+          "path": "/",
+          "method": "POST",
+          "handler": "create",
+          "middleware": [],
+          "parameters": [
+            {
+              "name": "createProductDto",
+              "type": "CreateProductDto",
+              "optional": false,
+              "decorator": "Body"
+            }
+          ],
+          "framework": "nestjs"
+        },
+        {
+          "path": "/",
+          "method": "GET",
+          "handler": "findAll",
+          "middleware": [],
+          "parameters": [],
+          "framework": "nestjs"
+        },
+        {
+          "path": ":id",
+          "method": "GET",
+          "handler": "findOne",
+          "middleware": [],
+          "parameters": [
+            {
+              "name": "id",
+              "type": "string",
+              "optional": false,
+              "decorator": "Param"
+            }
+          ],
+          "framework": "nestjs"
+        },
+        {
+          "path": ":id",
+          "method": "PATCH",
+          "handler": "update",
+          "middleware": [],
+          "parameters": [
+            {
+              "name": "id",
+              "type": "string",
+              "optional": false,
+              "decorator": "Param"
+            },
+            {
+              "name": "updateProductDto",
+              "type": "UpdateProductDto",
+              "optional": false,
+              "decorator": "Body"
+            }
+          ],
+          "framework": "nestjs"
+        },
+        {
+          "path": ":id",
+          "method": "DELETE",
+          "handler": "remove",
+          "middleware": [],
+          "parameters": [
+            {
+              "name": "id",
+              "type": "string",
+              "optional": false,
+              "decorator": "Param"
+            }
+          ],
+          "framework": "nestjs"
+        }
+      ],
+      "framework": "nestjs",
+      "filePath": "C:/Users/LENOVO/Desktop/Better-hack/backend/src/products/products.controller.ts"
+    }
+  ],
+  "services": [
+    {
+      "name": "AppService",
+      "methods": [
+        {
+          "name": "getHello",
+          "parameters": [],
+          "returnType": "string",
+          "isPublic": true
+        }
+      ],
+      "filePath": "C:/Users/LENOVO/Desktop/Better-hack/backend/src/app.service.ts",
+      "framework": "nestjs"
+    },
+    {
+      "name": "ProductsService",
+      "methods": [
+        {
+          "name": "create",
+          "parameters": [
+            {
+              "name": "createProductDto",
+              "type": "CreateProductDto",
+              "optional": false
+            }
+          ],
+          "returnType": "Product",
+          "isPublic": true
+        },
+        {
+          "name": "findAll",
+          "parameters": [],
+          "returnType": "Product[]",
+          "isPublic": true
+        },
+        {
+          "name": "findOne",
+          "parameters": [
+            {
+              "name": "id",
+              "type": "string",
+              "optional": false
+            }
+          ],
+          "returnType": "Product | undefined",
+          "isPublic": true
+        },
+        {
+          "name": "update",
+          "parameters": [
+            {
+              "name": "id",
+              "type": "string",
+              "optional": false
+            },
+            {
+              "name": "updateProductDto",
+              "type": "UpdateProductDto",
+              "optional": false
+            }
+          ],
+          "returnType": "Product | undefined",
+          "isPublic": true
+        },
+        {
+          "name": "remove",
+          "parameters": [
+            {
+              "name": "id",
+              "type": "string",
+              "optional": false
+            }
+          ],
+          "returnType": "boolean",
+          "isPublic": true
+        }
+      ],
+      "filePath": "C:/Users/LENOVO/Desktop/Better-hack/backend/src/products/products.service.ts",
+      "framework": "nestjs"
+    }
+  ],
+  "types": [
+    {
+      "name": "Product",
+      "type": "interface",
+      "filePath": "C:/Users/LENOVO/Desktop/Better-hack/backend/src/products/products.service.ts",
+      "properties": [
+        {
+          "name": "id",
+          "type": "string",
+          "optional": false
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "optional": false
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "optional": true
+        },
+        {
+          "name": "price",
+          "type": "number",
+          "optional": false
+        },
+        {
+          "name": "category",
+          "type": "string",
+          "optional": false
+        },
+        {
+          "name": "createdAt",
+          "type": "Date",
+          "optional": false
+        },
+        {
+          "name": "updatedAt",
+          "type": "Date",
+          "optional": false
+        },
+        {
+          "name": "deepNestedData",
+          "type": "{\r\n    level2: {\r\n      level3: {\r\n        level4: {\r\n          level5: {\r\n            value: string;\r\n            timestamp: Date;\r\n            metadata: {\r\n              source: string;\r\n              version: string;\r\n            };\r\n          };\r\n        };\r\n      };\r\n    };\r\n  }",
+          "optional": false
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "totalRoutes": 5,
+    "totalControllers": 2,
+    "totalServices": 2,
+    "analysisTime": 5.114
+  }
+}

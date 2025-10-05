@@ -1,199 +1,318 @@
-# @auto-doc-gen/universal
+# AutoDocGen Universal
 
-🚀 **Universal TypeScript Framework Documentation Generator**
+A universal TypeScript framework documentation generator that works with Express, NestJS, Fastify, Koa, and any TypeScript framework.
 
-Works with **any TypeScript Node.js framework** - Express, NestJS, Fastify, Koa, and more!
+## Features
 
-## ✨ Features
+-   🔍 **Universal Framework Support** - Works with any TypeScript framework
+-   🤖 **AI Documentation Generation** - Google Gemini, OpenAI GPT, Anthropic Claude
+-   🗄️ **MongoDB Integration** - Store analysis and documentation
+-   ⚙️ **Flexible Configuration** - Environment variables and config files
+-   📁 **File Management** - Save analysis and AI documentation
+-   🎯 **Framework Detection** - Automatic framework detection
+-   📊 **Comprehensive Analysis** - Routes, controllers, services, types
 
--   🔍 **Auto-Detection** - Automatically identifies your framework
--   🌐 **Universal Support** - Works with Express, NestJS, Fastify, Koa
--   📊 **Smart Analysis** - Extracts routes, controllers, services, and types
--   🤖 **AI-Powered** - Generate documentation with AI
--   📄 **Multiple Outputs** - JSON, Markdown, and more
--   ⚡ **Fast & Lightweight** - Optimized for performance
-
-## 🚀 Quick Start
-
-### Installation
+## Installation
 
 ```bash
-npm install -g @auto-doc-gen/universal
+npm install @auto-doc-gen/universal
 ```
 
-### Basic Usage
+## Quick Start
+
+### 1. Create Configuration
+
+Create `autodocgen.config.json` in your project:
+
+```json
+{
+    "ai": {
+        "provider": "google",
+        "model": "gemini-2.5-flash",
+        "temperature": 0.7,
+        "maxTokens": 4000
+    },
+    "database": {
+        "enabled": true,
+        "url": "mongodb://localhost:27017/api_docs",
+        "database": "api_docs"
+    },
+    "files": {
+        "outputDir": "./docs",
+        "saveRawAnalysis": true,
+        "saveAIDocs": true,
+        "timestampFiles": true
+    }
+}
+```
+
+### 2. Set Environment Variables
+
+Create `.env` file:
 
 ```bash
-# Auto-detect framework and analyze
-auto-doc-gen-universal analyze ./src
+# AI Configuration
+GOOGLE_AI_API_KEY=your_google_api_key_here
+# OR
+OPENAI_API_KEY=your_openai_api_key_here
+# OR
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
 
-# Force specific framework
-auto-doc-gen-universal analyze ./src --framework express
+# Database (optional)
+AUTODOCGEN_DB_ENABLED=true
+AUTODOCGEN_DB_URL=mongodb://localhost:27017/api_docs
+```
+
+### 3. Add NPM Scripts
+
+Add to your `package.json`:
+
+```json
+{
+    "scripts": {
+        "docs:analyze": "npx auto-doc-gen-universal analyze . --config autodocgen.config.json",
+        "docs:generate": "npx auto-doc-gen-universal ai docs/analysis.json --config autodocgen.config.json",
+        "docs:full": "npm run docs:analyze && npm run docs:generate",
+        "docs:detect": "npx auto-doc-gen-universal detect . --config autodocgen.config.json"
+    }
+}
+```
+
+### 4. Generate Documentation
+
+```bash
+# Detect framework
+npm run docs:detect
+
+# Analyze project
+npm run docs:analyze
 
 # Generate AI documentation
-auto-doc-gen-universal ai ./analysis.json
+npm run docs:generate
+
+# Full pipeline
+npm run docs:full
 ```
 
-## 🎯 Supported Frameworks
+## CLI Commands
 
-### Express.js
-
--   ✅ Route extraction (`app.get()`, `router.post()`)
--   ✅ Middleware analysis
--   ✅ Controller grouping
--   ✅ Parameter extraction
-
-### NestJS
-
--   ✅ Controller decorators (`@Controller`, `@Get`, `@Post`)
--   ✅ Service dependency injection
--   ✅ Guard and interceptor detection
--   ✅ Module relationships
-
-### Fastify
-
--   ✅ Route registration patterns
--   ✅ Plugin analysis
--   ✅ Schema extraction
-
-### Koa
-
--   ✅ Middleware chains
--   ✅ Route handlers
--   ✅ Context analysis
-
-### Generic TypeScript
-
--   ✅ Function extraction
--   ✅ Class analysis
--   ✅ Type definitions
--   ✅ Import/export mapping
-
-## 📋 Commands
-
-### `analyze` - Analyze your project
+### Analysis
 
 ```bash
-# Auto-detect framework
-auto-doc-gen-universal analyze ./src
+# Analyze project
+npx auto-doc-gen-universal analyze <path> [options]
 
-# Specify framework
-auto-doc-gen-universal analyze ./src --framework express
-
-# Multiple frameworks (monorepo)
-auto-doc-gen-universal analyze ./src --frameworks express,nestjs
-
-# With options
-auto-doc-gen-universal analyze ./src --output analysis.json --verbose
+# Detect framework
+npx auto-doc-gen-universal detect <path> [options]
 ```
 
-### `detect` - Detect framework
+### AI Documentation
 
 ```bash
-# Detect framework in project
-auto-doc-gen-universal detect ./src
-
-# Show detection details
-auto-doc-gen-universal detect ./src --verbose
+# Generate AI documentation
+npx auto-doc-gen-universal ai <analysis-file> [options]
 ```
 
-### `ai` - Generate AI documentation
+### Configuration
 
 ```bash
-# Generate from analysis
-auto-doc-gen-universal ai analysis.json
+# Show configuration
+npx auto-doc-gen-universal config show [options]
 
-# With custom settings
-auto-doc-gen-universal ai analysis.json --provider openai --model gpt-4
+# Validate configuration
+npx auto-doc-gen-universal config validate [options]
+
+# Initialize configuration
+npx auto-doc-gen-universal config init [options]
 ```
 
-## 🔧 Configuration
+## Configuration Options
 
-Create `autodocgen.config.json`:
+### AI Configuration
 
 ```json
 {
-    "frameworks": {
-        "express": { "enabled": true },
-        "nestjs": { "enabled": true },
-        "fastify": { "enabled": false }
-    },
-    "extraction": {
-        "includeTypes": true,
-        "includeMiddleware": true,
-        "includeTests": false
-    },
-    "output": {
-        "format": "json",
-        "directory": "./docs"
-    },
     "ai": {
-        "enabled": true,
-        "provider": "openai",
-        "model": "gpt-4"
+        "provider": "google|openai|anthropic",
+        "model": "model-name",
+        "temperature": 0.7,
+        "maxTokens": 4000,
+        "customPrompt": "optional custom prompt"
     }
 }
 ```
 
-## 📊 Output Format
-
-Universal analysis result:
+### Database Configuration
 
 ```json
 {
-  "framework": "express",
-  "routes": [
-    {
-      "path": "/api/users",
-      "method": "GET",
-      "handler": "getUsers",
-      "middleware": ["auth", "validate"],
-      "parameters": [
-        { "name": "req", "type": "Request" },
-        { "name": "res", "type": "Response" }
-      ]
+    "database": {
+        "enabled": true,
+        "url": "mongodb://localhost:27017/api_docs",
+        "database": "api_docs",
+        "collections": {
+            "documentation": "documentation",
+            "endpoints": "endpoints",
+            "types": "types"
+        }
     }
-  ],
-  "controllers": [...],
-  "services": [...],
-  "types": [...],
-  "metadata": {
-    "totalRoutes": 15,
-    "totalControllers": 3,
-    "analysisTime": 1.2
-  }
 }
 ```
 
-## 🏗️ Architecture
+### File Configuration
+
+```json
+{
+    "files": {
+        "outputDir": "./docs",
+        "analysisFilename": "analysis.json",
+        "docsFilename": "ai-analysis.md",
+        "saveRawAnalysis": true,
+        "saveAIDocs": true,
+        "timestampFiles": true
+    }
+}
+```
+
+## Environment Variables
+
+### AI Configuration
+
+```bash
+AUTODOCGEN_AI_PROVIDER=google
+GOOGLE_AI_API_KEY=your_key
+AUTODOCGEN_GOOGLE_MODEL=gemini-2.5-flash
+```
+
+### Database Configuration
+
+```bash
+AUTODOCGEN_DB_ENABLED=true
+AUTODOCGEN_DB_URL=mongodb://localhost:27017/api_docs
+AUTODOCGEN_DB_NAME=api_docs
+```
+
+### File Configuration
+
+```bash
+AUTODOCGEN_OUTPUT_DIR=./docs
+AUTODOCGEN_SAVE_RAW=true
+AUTODOCGEN_TIMESTAMP_FILES=true
+```
+
+## Supported Frameworks
+
+-   ✅ **NestJS** - Controllers, services, decorators
+-   ✅ **Express** - Routes, middleware, handlers
+-   ✅ **Fastify** - Routes, plugins, schemas
+-   ✅ **Koa** - Middleware, routes, context
+-   ✅ **Any TypeScript** - Generic pattern matching
+
+## AI Providers
+
+### Google Gemini
+
+```json
+{
+    "ai": {
+        "provider": "google",
+        "model": "gemini-2.5-flash"
+    }
+}
+```
+
+### OpenAI
+
+```json
+{
+    "ai": {
+        "provider": "openai",
+        "model": "gpt-4o"
+    }
+}
+```
+
+### Anthropic
+
+```json
+{
+    "ai": {
+        "provider": "anthropic",
+        "model": "claude-3-5-sonnet"
+    }
+}
+```
+
+## Output Examples
+
+### Analysis JSON
+
+```json
+{
+    "framework": "nestjs",
+    "routes": [
+        {
+            "method": "GET",
+            "path": "/products",
+            "controller": "ProductsController",
+            "handler": "findAll"
+        }
+    ],
+    "controllers": [
+        {
+            "name": "ProductsController",
+            "path": "src/products/products.controller.ts"
+        }
+    ],
+    "services": [
+        {
+            "name": "ProductsService",
+            "path": "src/products/products.service.ts"
+        }
+    ],
+    "types": [
+        {
+            "name": "Product",
+            "properties": [
+                {
+                    "name": "id",
+                    "type": "string"
+                }
+            ]
+        }
+    ]
+}
+```
+
+### AI Documentation
+
+````markdown
+# API Documentation
+
+## Products API
+
+### GET /products
+
+Get all products
+
+**Response:**
+
+```json
+{
+    "products": [
+        {
+            "id": "string",
+            "name": "string",
+            "price": "number"
+        }
+    ]
+}
+```
+````
 
 ```
-@auto-doc-gen/universal
-├── 🔍 Framework Detection
-├── 📊 Universal Extractors
-├── 🔄 Framework Adapters
-├── 📄 Unified Output
-└── ⚙️ CLI Interface
+
+## License
+
+MIT
 ```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
--   📖 [Documentation](https://github.com/better-hack/auto-doc-gen-universal/wiki)
--   🐛 [Issues](https://github.com/better-hack/auto-doc-gen-universal/issues)
--   💬 [Discussions](https://github.com/better-hack/auto-doc-gen-universal/discussions)
-
----
-
-**Made with ❤️ by Better-Hack-Nullheads**
