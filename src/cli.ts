@@ -9,7 +9,6 @@ import { FrameworkDetector } from './core/framework-detector'
 import { UniversalAnalyzer } from './core/universal-analyzer'
 import { AIService } from './services/ai-service'
 import { ScalarAIService } from './services/scalar-ai-service'
-import { ScalarPromptTemplates } from './utils/scalar-prompt-templates'
 
 // Environment variables loaded by ConfigManager
 
@@ -546,35 +545,6 @@ function extractModuleFromName(name: string): string | null {
     }
 }
 
-// New function to group routes by Scalar controllers (from OpenAPI tags)
-function groupRoutesByScalarControllers(
-    controllers: any[]
-): Record<string, any[]> {
-    const chunks: Record<string, any[]> = {}
-
-    controllers.forEach((controller) => {
-        if (controller.name && controller.routes) {
-            // Extract module name from controller name (remove "Controller" suffix)
-            const moduleName = controller.name
-                .replace(/Controller$/i, '')
-                .toLowerCase()
-
-            // Sanitize module name for file system
-            const sanitizedModuleName = moduleName.replace(
-                /[^a-zA-Z0-9-_]/g,
-                '_'
-            )
-
-            if (!chunks[sanitizedModuleName]) {
-                chunks[sanitizedModuleName] = []
-            }
-            chunks[sanitizedModuleName]!.push(...controller.routes)
-        }
-    })
-
-    return chunks
-}
-
 function getAPIKeyFromEnv(provider: string): string {
     switch (provider) {
         case 'google':
@@ -644,11 +614,11 @@ program
 program
     .command('generate')
     .description(
-        'Generate chunked AI documentation from Scalar OpenAPI spec (default command)'
+        'Generate chunked AI documentation from current project (default command)'
     )
     .argument(
-        '[openapi-path]',
-        'Path to OpenAPI spec file (default: test-openapi.json)'
+        '[project-path]',
+        'Path to project directory (default: current directory)'
     )
     .option(
         '-o, --output-dir <dir>',
@@ -656,22 +626,38 @@ program
         'docs/test'
     )
     .option('--save-to-db', 'Save AI documentation to MongoDB', true)
-    .action(async (openApiPath, options) => {
+    .action(async (projectPath, options) => {
         try {
-            // Use default OpenAPI path if not provided
-            const apiPath =
-                openApiPath || '../auto-doc-gen-universal/test-openapi.json'
+            // Use current directory if not provided
+            const targetPath = projectPath || '.'
 
             console.log(
-                '🤖 Generating chunked AI documentation from Scalar OpenAPI spec...'
+                '🤖 Generating chunked AI documentation from current project...'
             )
 
             const config = configManager.getConfig()
             const aiService = new AIService(config.ai)
-            const scalarAIService = new ScalarAIService(aiService)
 
-            // Get transformed data from OpenAPI spec
-            const aiInput = scalarAIService.getTransformedData(apiPath)
+            // Analyze the actual project
+            const analyzer = new UniversalAnalyzer(targetPath)
+            const analysisResult = await analyzer.analyze()
+
+            // Transform to AI input format
+            const aiInput = {
+                framework: analysisResult.framework,
+                routes: analysisResult.routes,
+                controllers: analysisResult.controllers,
+                services: analysisResult.services,
+                types: analysisResult.types,
+                metadata: {
+                    totalRoutes: analysisResult.routes.length,
+                    totalControllers: analysisResult.controllers.length,
+                    totalServices: analysisResult.services.length,
+                    totalTypes: analysisResult.types.length,
+                    analysisTime: analysisResult.metadata.analysisTime,
+                    source: 'project-analysis',
+                },
+            }
 
             // Create output directory
             const outputDir = options.outputDir || 'docs/chunks'
@@ -679,16 +665,16 @@ program
                 mkdirSync(outputDir, { recursive: true })
             }
 
-            // Save the transformed Scalar data for inspection
-            const scalarDataPath = join(
-                outputDir,
-                'scalar-transformed-data.json'
+            // Save the analysis data for inspection
+            const analysisDataPath = join(outputDir, 'project-analysis.json')
+            writeFileSync(
+                analysisDataPath,
+                JSON.stringify(analysisResult, null, 2)
             )
-            scalarAIService.saveTransformedData(apiPath, scalarDataPath)
-            console.log(`💾 Scalar transformed data saved to ${scalarDataPath}`)
+            console.log(`💾 Project analysis data saved to ${analysisDataPath}`)
 
-            // Use Scalar's controller-based grouping (from OpenAPI tags)
-            const chunks = groupRoutesByScalarControllers(aiInput.controllers)
+            // Use controller-based grouping
+            const chunks = groupRoutesByController(aiInput.routes)
 
             console.log(
                 `📊 Found ${Object.keys(chunks).length} modules: ${Object.keys(
@@ -714,12 +700,8 @@ program
                     metadata: { ...aiInput.metadata, moduleName },
                 }
 
-                // Use enhanced prompt for OpenAPI data
-                const enhancedPrompt =
-                    ScalarPromptTemplates.buildChunkedOpenAPIPrompt(moduleData)
-                const moduleDocs = await aiService.generateDocumentation(
-                    enhancedPrompt
-                )
+                // Use standard prompt for project analysis
+                const moduleDocs = await aiService.analyzeProject(moduleData)
 
                 // Save documentation
                 const docPath = join(outputDir, `${moduleName}.md`)
@@ -747,7 +729,7 @@ program
 
                         await dbAdapter.saveDocumentation({
                             content: moduleDocs,
-                            source: 'scalar-ai-generation-chunked',
+                            source: 'project-analysis-chunked',
                             provider: config.ai.provider,
                             model: config.ai.model,
                             timestamp: timestamp,
@@ -756,11 +738,11 @@ program
                                 framework: aiInput.framework,
                                 moduleName: moduleName,
                                 totalRoutes: moduleRoutes.length,
-                                source: 'openapi',
+                                source: 'project-analysis',
                                 runId: runId,
                                 runTimestamp: timestamp,
                                 chunkTimestamp: chunkTimestamp,
-                                openApiSpecPath: apiPath,
+                                projectPath: targetPath,
                             },
                         })
                         await dbAdapter.disconnect()
