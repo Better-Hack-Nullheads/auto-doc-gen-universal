@@ -171,7 +171,77 @@ program
         }
     })
 
-// Configuration commands removed - handled by consuming projects
+program
+    .command('config')
+    .description('Generate configuration file for auto-doc-gen')
+    .option('-o, --output <file>', 'Output configuration file path', 'autodocgen.config.json')
+    .option('--template <template>', 'Configuration template (basic, full, minimal)', 'basic')
+    .option('--interactive', 'Interactive configuration setup')
+    .action((options) => {
+        try {
+            const configTemplate = generateConfigTemplate(options.template)
+            
+            // Write config file
+            writeFileSync(options.output, JSON.stringify(configTemplate, null, 2))
+            
+            console.log(`✅ Configuration file generated: ${options.output}`)
+            console.log('')
+            console.log('📋 Next steps:')
+            console.log('1. Edit the configuration file to match your needs')
+            console.log('2. Set your AI API key in the config or environment variables')
+            console.log('3. Run: auto-doc-gen-universal analyze <your-project-path>')
+            console.log('')
+            console.log('🔑 Environment variables you can set:')
+            console.log('   GOOGLE_AI_API_KEY=your_key_here')
+            console.log('   OPENAI_API_KEY=your_key_here')
+            console.log('   ANTHROPIC_API_KEY=your_key_here')
+            
+        } catch (error) {
+            console.error('❌ Failed to generate configuration:', error)
+            process.exit(1)
+        }
+    })
+
+program
+    .command('config:validate')
+    .description('Validate configuration file')
+    .option('-c, --config <file>', 'Configuration file path', 'autodocgen.config.json')
+    .action((options) => {
+        try {
+            const configManager = ConfigManager.getInstance()
+            
+            // Load the config file
+            configManager.loadConfigFile(options.config)
+            
+            // Validate the configuration
+            const validation = configManager.validateConfig()
+            
+            if (validation.valid) {
+                console.log('✅ Configuration is valid!')
+                console.log('')
+                console.log('📋 Configuration Summary:')
+                const config = configManager.getConfig()
+                console.log(`   AI Provider: ${config.ai.provider}`)
+                console.log(`   AI Model: ${config.ai.model}`)
+                console.log(`   API Key: ${config.ai.apiKey ? '✅ Set' : '❌ Not set'}`)
+                console.log(`   Database: ${config.database.enabled ? '✅ Enabled' : '❌ Disabled'}`)
+                console.log(`   Output Directory: ${config.files.outputDir}`)
+                console.log(`   Verbose Mode: ${config.verbose ? '✅ Enabled' : '❌ Disabled'}`)
+            } else {
+                console.log('❌ Configuration validation failed:')
+                console.log('')
+                validation.errors.forEach((error, index) => {
+                    console.log(`   ${index + 1}. ${error}`)
+                })
+                console.log('')
+                console.log('💡 Fix these issues and run the validation again.')
+                process.exit(1)
+            }
+        } catch (error) {
+            console.error('❌ Failed to validate configuration:', error)
+            process.exit(1)
+        }
+    })
 
 program
     .command('detect')
@@ -844,5 +914,82 @@ program
             process.exit(1)
         }
     })
+
+function generateConfigTemplate(template: string): any {
+    const baseConfig = {
+        ai: {
+            provider: 'google',
+            model: 'gemini-2.5-flash',
+            apiKey: '', // Will be loaded from environment variables
+            temperature: 0.7,
+            maxTokens: 4000,
+            customPrompt: undefined
+        },
+        database: {
+            enabled: false,
+            type: 'mongodb',
+            url: 'mongodb://localhost:27017/api_docs',
+            database: 'api_docs',
+            collections: {
+                documentation: 'documentation',
+                endpoints: 'endpoints',
+                types: 'types'
+            },
+            mapping: {
+                createCollections: true,
+                includeTypeSchemas: true
+            }
+        },
+        files: {
+            outputDir: './docs',
+            analysisFilename: 'analysis.json',
+            docsFilename: 'ai-analysis.md',
+            saveRawAnalysis: true,
+            saveAIDocs: true,
+            timestampFiles: true
+        },
+        framework: {
+            autoDetect: true,
+            forceFramework: undefined
+        },
+        verbose: false
+    }
+
+    switch (template) {
+        case 'minimal':
+            return {
+                ai: {
+                    provider: 'google',
+                    model: 'gemini-2.5-flash',
+                    apiKey: '' // Set via GOOGLE_AI_API_KEY environment variable
+                },
+                files: {
+                    outputDir: './docs'
+                }
+            }
+        
+        case 'full':
+            return {
+                ...baseConfig,
+                // Add additional advanced options for full template
+                analysis: {
+                    includeComments: true,
+                    includeImports: false,
+                    includePrivateMethods: false,
+                    maxDepth: 5
+                },
+                output: {
+                    format: 'markdown',
+                    includeExamples: true,
+                    includeTypeDefinitions: true,
+                    groupByModule: true
+                }
+            }
+        
+        case 'basic':
+        default:
+            return baseConfig
+    }
+}
 
 program.parse()
