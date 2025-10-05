@@ -124,4 +124,11 @@ export class ScalarAIService {
         const openApiSpec = JSON.parse(readFileSync(openApiSpecPath, 'utf-8'))
         return this.transformOpenApiToAIFormat(openApiSpec)
     }
+
+    // Method to save the transformed data to a file
+    saveTransformedData(openApiSpecPath: string, outputPath: string): void {
+        const transformedData = this.getTransformedData(openApiSpecPath)
+        const { writeFileSync } = require('fs')
+        writeFileSync(outputPath, JSON.stringify(transformedData, null, 2))
+    }
 }

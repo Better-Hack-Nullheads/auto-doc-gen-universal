@@ -487,27 +487,30 @@ function groupRoutesByController(
                 }
             }
 
-            // Strategy 2: Match by path patterns
+            // Strategy 2: Extract module from route path (generic approach)
             if (moduleName === 'unknown') {
                 if (route.path === '/' || route.path === '') {
-                    moduleName = 'apps'
-                } else if (route.path && route.path.includes('email')) {
-                    moduleName = 'users'
-                } else if (
-                    route.path &&
-                    (route.path.includes('activate') ||
-                        route.path.includes('deactivate'))
-                ) {
-                    moduleName = 'users'
+                    moduleName = 'app'
                 } else {
-                    // Strategy 3: Use route position as last resort
-                    const routeGroup = Math.floor(index / 3)
-                    const moduleNames = Array.from(serviceModules.keys())
-
-                    if (routeGroup < moduleNames.length) {
-                        moduleName = moduleNames[routeGroup] || 'apps'
+                    // Extract module name from the first path segment
+                    const pathSegments = route.path
+                        .split('/')
+                        .filter(
+                            (segment: string) =>
+                                segment && !segment.startsWith(':')
+                        )
+                    if (pathSegments.length > 0) {
+                        moduleName = pathSegments[0].toLowerCase()
                     } else {
-                        moduleName = 'apps'
+                        // Strategy 3: Use route position as last resort
+                        const routeGroup = Math.floor(index / 3)
+                        const moduleNames = Array.from(serviceModules.keys())
+
+                        if (routeGroup < moduleNames.length) {
+                            moduleName = moduleNames[routeGroup] || 'app'
+                        } else {
+                            moduleName = 'app'
+                        }
                     }
                 }
             }
@@ -541,6 +544,35 @@ function extractModuleFromName(name: string): string | null {
     } else {
         return cleanName + 's'
     }
+}
+
+// New function to group routes by Scalar controllers (from OpenAPI tags)
+function groupRoutesByScalarControllers(
+    controllers: any[]
+): Record<string, any[]> {
+    const chunks: Record<string, any[]> = {}
+
+    controllers.forEach((controller) => {
+        if (controller.name && controller.routes) {
+            // Extract module name from controller name (remove "Controller" suffix)
+            const moduleName = controller.name
+                .replace(/Controller$/i, '')
+                .toLowerCase()
+
+            // Sanitize module name for file system
+            const sanitizedModuleName = moduleName.replace(
+                /[^a-zA-Z0-9-_]/g,
+                '_'
+            )
+
+            if (!chunks[sanitizedModuleName]) {
+                chunks[sanitizedModuleName] = []
+            }
+            chunks[sanitizedModuleName]!.push(...controller.routes)
+        }
+    })
+
+    return chunks
 }
 
 function getAPIKeyFromEnv(provider: string): string {
@@ -630,12 +662,16 @@ program
                 mkdirSync(outputDir, { recursive: true })
             }
 
-            // Group routes by controller (using existing logic)
-            const chunks = groupRoutesByController(
-                aiInput.routes,
-                aiInput.services,
-                aiInput.controllers
+            // Save the transformed Scalar data for inspection
+            const scalarDataPath = join(
+                outputDir,
+                'scalar-transformed-data.json'
             )
+            scalarAIService.saveTransformedData(openApiPath, scalarDataPath)
+            console.log(`💾 Scalar transformed data saved to ${scalarDataPath}`)
+
+            // Use Scalar's controller-based grouping (from OpenAPI tags)
+            const chunks = groupRoutesByScalarControllers(aiInput.controllers)
 
             console.log(
                 `📊 Found ${Object.keys(chunks).length} modules: ${Object.keys(
