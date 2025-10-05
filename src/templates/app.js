@@ -91,6 +91,11 @@ class BuildIndicator {
         // Update stats if available
         if (data.metadata) {
             this.updateStats(data.metadata)
+
+            // Update database stats if available
+            if (data.metadata.databaseStats) {
+                this.updateDatabaseStats(data.metadata.databaseStats)
+            }
         }
     }
 
@@ -121,6 +126,94 @@ class BuildIndicator {
                     element.textContent = value
                 }
             }
+        })
+    }
+
+    updateDatabaseStats(dbStats) {
+        // Show database section
+        const dbSection = document.getElementById('databaseSection')
+        if (dbSection) {
+            dbSection.style.display = 'block'
+        }
+
+        // Update total documents
+        const totalDocsElement = document.getElementById('dbTotalDocuments')
+        if (totalDocsElement) {
+            totalDocsElement.textContent = dbStats.totalDocuments
+        }
+
+        // Update latest run
+        const latestRunElement = document.getElementById('dbLatestRun')
+        if (latestRunElement) {
+            latestRunElement.textContent = dbStats.latestRun || 'N/A'
+        }
+
+        // Update frameworks
+        this.updateFrameworkList(dbStats.frameworks)
+
+        // Update providers
+        this.updateProviderList(dbStats.providers)
+
+        // Update recent documents
+        this.updateRecentDocuments(dbStats.recentDocuments)
+    }
+
+    updateFrameworkList(frameworks) {
+        const frameworksElement = document.getElementById('dbFrameworks')
+        if (!frameworksElement) return
+
+        frameworksElement.innerHTML = ''
+        Object.entries(frameworks).forEach(([framework, count]) => {
+            const item = document.createElement('div')
+            item.className = 'framework-item'
+            item.textContent = `${framework}: ${count}`
+            frameworksElement.appendChild(item)
+        })
+    }
+
+    updateProviderList(providers) {
+        const providersElement = document.getElementById('dbProviders')
+        if (!providersElement) return
+
+        providersElement.innerHTML = ''
+        Object.entries(providers).forEach(([provider, count]) => {
+            const item = document.createElement('div')
+            item.className = 'provider-item'
+            item.textContent = `${provider}: ${count}`
+            providersElement.appendChild(item)
+        })
+    }
+
+    updateRecentDocuments(documents) {
+        const documentsElement = document.getElementById('recentDocuments')
+        if (!documentsElement) return
+
+        documentsElement.innerHTML = ''
+        documents.forEach((doc) => {
+            const item = document.createElement('div')
+            item.className = 'document-item'
+
+            const info = document.createElement('div')
+            info.className = 'document-info'
+
+            const source = document.createElement('div')
+            source.className = 'document-source'
+            source.textContent = doc.source
+
+            const meta = document.createElement('div')
+            meta.className = 'document-meta'
+            meta.textContent = `${doc.provider} • ${doc.model}`
+
+            info.appendChild(source)
+            info.appendChild(meta)
+
+            const time = document.createElement('div')
+            time.className = 'document-time'
+            time.textContent = new Date(doc.timestamp).toLocaleString()
+
+            item.appendChild(info)
+            item.appendChild(time)
+            documentsElement.appendChild(item)
         })
     }
 

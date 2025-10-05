@@ -4,6 +4,7 @@ import { join } from 'path'
 import { ConfigManager } from '../config/config'
 import { UniversalAnalyzer } from '../core/universal-analyzer'
 import { BuildServer } from '../utils/build-server'
+import { MongoDBDataService } from './mongodb-data-service'
 
 export interface WatchOptions {
     path: string
@@ -17,6 +18,7 @@ export class WatchService {
     private watcher: chokidar.FSWatcher | null = null
     private buildServer: BuildServer
     private configManager: ConfigManager
+    private dataService: MongoDBDataService
     private options: WatchOptions
     private debounceTimer: NodeJS.Timeout | null = null
     private isAnalyzing = false
@@ -49,6 +51,7 @@ export class WatchService {
 
         this.buildServer = new BuildServer(options.port)
         this.configManager = ConfigManager.getInstance()
+        this.dataService = new MongoDBDataService()
     }
 
     public async start(): Promise<void> {
@@ -185,6 +188,9 @@ export class WatchService {
                 analysisTime: result.metadata.analysisTime,
             })
 
+            // Update database statistics
+            await this.updateDatabaseStats()
+
             // Save analysis if configured
             const config = this.configManager.getConfig()
             if (config.files.saveRawAnalysis) {
@@ -217,6 +223,37 @@ export class WatchService {
             this.buildServer.setError(`Analysis failed: ${error}`)
         } finally {
             this.isAnalyzing = false
+        }
+    }
+
+    private async updateDatabaseStats(): Promise<void> {
+        try {
+            const stats = await this.dataService.getAnalysisStats()
+            const latestDocs = await this.dataService.getLatestDocuments(5)
+
+            // Update build server with database data
+            this.buildServer.updateMetadata({
+                ...this.buildServer.getStatus().metadata,
+                databaseStats: {
+                    totalDocuments: stats.totalDocuments,
+                    frameworks: stats.frameworks,
+                    providers: stats.providers,
+                    latestRun: stats.latestRun,
+                    recentDocuments: latestDocs.map((doc) => {
+                        const result: any = {
+                            source: doc.source,
+                            provider: doc.provider,
+                            model: doc.model,
+                            timestamp: doc.timestamp,
+                        }
+                        if (doc._id) result.id = doc._id
+                        if (doc.runId) result.runId = doc.runId
+                        return result
+                    }),
+                },
+            })
+        } catch (error) {
+            console.warn('⚠️ Could not fetch database stats:', error)
         }
     }
 }

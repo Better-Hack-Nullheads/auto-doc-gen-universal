@@ -15,6 +15,20 @@ export interface BuildStatus {
         totalServices?: number
         totalTypes?: number
         analysisTime?: number
+        databaseStats?: {
+            totalDocuments: number
+            frameworks: { [key: string]: number }
+            providers: { [key: string]: number }
+            latestRun: string | null
+            recentDocuments: Array<{
+                id?: string
+                source: string
+                provider: string
+                model: string
+                timestamp: Date
+                runId?: string
+            }>
+        }
     }
 }
 
@@ -138,6 +152,10 @@ export class BuildServer {
             ...this.status.metadata,
             ...metadata,
         }
+    }
+
+    public getStatus(): BuildStatus {
+        return this.status
     }
 
     private getFallbackHTML(): string {
