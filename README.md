@@ -20,7 +20,17 @@ npm install @auto-doc-gen/universal
 
 ## Quick Start
 
-### 1. Create Configuration
+### 1. Run Setup Script
+
+In your project directory, run the setup script:
+
+```bash
+npm run docs:setup
+```
+
+This will create all necessary configuration files.
+
+### 2. Manual Configuration (Alternative)
 
 Create `autodocgen.config.json` in your project:
 
@@ -46,7 +56,7 @@ Create `autodocgen.config.json` in your project:
 }
 ```
 
-### 2. Set Environment Variables
+### 3. Set Environment Variables
 
 Create `.env` file:
 
@@ -63,7 +73,7 @@ AUTODOCGEN_DB_ENABLED=true
 AUTODOCGEN_DB_URL=mongodb://localhost:27017/api_docs
 ```
 
-### 3. Add NPM Scripts
+### 4. Add NPM Scripts
 
 Add to your `package.json`:
 
@@ -78,7 +88,7 @@ Add to your `package.json`:
 }
 ```
 
-### 4. Generate Documentation
+### 5. Generate Documentation
 
 ```bash
 # Detect framework
@@ -115,15 +125,11 @@ npx auto-doc-gen-universal ai <analysis-file> [options]
 
 ### Configuration
 
+Configuration is handled by the consuming project. Use the setup script:
+
 ```bash
-# Show configuration
-npx auto-doc-gen-universal config show [options]
-
-# Validate configuration
-npx auto-doc-gen-universal config validate [options]
-
-# Initialize configuration
-npx auto-doc-gen-universal config init [options]
+# Run setup script in your project
+npm run docs:setup
 ```
 
 ## Configuration Options
