@@ -9,6 +9,8 @@ import { FrameworkDetector } from './core/framework-detector'
 import { UniversalAnalyzer } from './core/universal-analyzer'
 import { AIService } from './services/ai-service'
 
+// Environment variables loaded by ConfigManager
+
 const program = new Command()
 
 // Initialize configuration
@@ -172,11 +174,14 @@ async function generateAIDocumentation(
     config: any
 ) {
     try {
-        // Merge options with config
+        // Merge options with config and environment variables
         const aiConfig = {
             provider: options.provider || config.ai.provider,
             model: options.model || config.ai.model,
-            apiKey: options.apiKey || config.ai.apiKey,
+            apiKey:
+                options.apiKey ||
+                config.ai.apiKey ||
+                getAPIKeyFromEnv(config.ai.provider),
             temperature: config.ai.temperature,
             maxTokens: config.ai.maxTokens,
         }
@@ -241,6 +246,32 @@ async function generateAIDocumentation(
     } catch (error) {
         console.error('❌ AI documentation generation failed:', error)
         throw error
+    }
+}
+
+function getAPIKeyFromEnv(provider: string): string {
+    switch (provider) {
+        case 'google':
+            return (
+                process.env['GOOGLE_AI_API_KEY'] ||
+                process.env['GOOGLE_GENERATIVE_AI_API_KEY'] ||
+                process.env['AUTODOCGEN_GOOGLE_API_KEY'] ||
+                ''
+            )
+        case 'openai':
+            return (
+                process.env['OPENAI_API_KEY'] ||
+                process.env['AUTODOCGEN_OPENAI_API_KEY'] ||
+                ''
+            )
+        case 'anthropic':
+            return (
+                process.env['ANTHROPIC_API_KEY'] ||
+                process.env['AUTODOCGEN_ANTHROPIC_API_KEY'] ||
+                ''
+            )
+        default:
+            return ''
     }
 }
 

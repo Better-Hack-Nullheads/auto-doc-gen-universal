@@ -2,8 +2,23 @@ import { config } from 'dotenv'
 import { existsSync } from 'fs'
 import { join } from 'path'
 
-// Load environment variables
-config()
+// Load .env from current working directory (where the command is run)
+const envPath = join(process.cwd(), '.env')
+if (existsSync(envPath)) {
+    const result = config({ path: envPath, override: true })
+    if (result.parsed) {
+        console.log(`✅ Loaded environment from: ${envPath}`)
+        console.log(
+            `🔑 GOOGLE_AI_API_KEY: ${
+                process.env['GOOGLE_AI_API_KEY'] ? 'FOUND' : 'NOT FOUND'
+            }`
+        )
+    } else {
+        console.log(`⚠️ Failed to parse .env file at: ${envPath}`)
+    }
+} else {
+    console.log(`⚠️ No .env file found at: ${envPath}`)
+}
 
 export interface AIConfig {
     provider: 'google' | 'openai' | 'anthropic'
