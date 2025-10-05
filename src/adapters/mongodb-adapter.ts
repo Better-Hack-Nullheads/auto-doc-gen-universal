@@ -282,4 +282,71 @@ export class MongoDBAdapter {
             .sort({ timestamp: -1 })
             .toArray()
     }
+
+    // Run management methods
+    async getRuns(limit: number = 10): Promise<any[]> {
+        if (!this.isConnected) {
+            throw new Error('Database not connected. Call connect() first.')
+        }
+
+        return await this.db
+            .collection(this.config.collections.documentation)
+            .aggregate([
+                {
+                    $group: {
+                        _id: '$runId',
+                        runId: { $first: '$runId' },
+                        timestamp: { $first: '$timestamp' },
+                        provider: { $first: '$provider' },
+                        model: { $first: '$model' },
+                        source: { $first: '$source' },
+                        modules: { $addToSet: '$metadata.moduleName' },
+                        totalRoutes: { $sum: '$metadata.totalRoutes' },
+                        chunkTimestamp: { $first: '$metadata.chunkTimestamp' },
+                        openApiSpecPath: {
+                            $first: '$metadata.openApiSpecPath',
+                        },
+                    },
+                },
+                { $sort: { timestamp: -1 } },
+                { $limit: limit },
+            ])
+            .toArray()
+    }
+
+    async getRunById(runId: string): Promise<any> {
+        if (!this.isConnected) {
+            throw new Error('Database not connected. Call connect() first.')
+        }
+
+        const runs = await this.db
+            .collection(this.config.collections.documentation)
+            .find({ runId })
+            .toArray()
+
+        if (runs.length === 0) return null
+
+        // Combine all modules for this run
+        const combinedRun = {
+            runId: runs[0]?.['runId'],
+            timestamp: runs[0]?.['timestamp'],
+            provider: runs[0]?.['provider'],
+            model: runs[0]?.['model'],
+            source: runs[0]?.['source'],
+            modules: runs.map((r) => r['metadata']?.['moduleName']),
+            totalRoutes: runs.reduce(
+                (sum, r) => sum + (r['metadata']?.['totalRoutes'] || 0),
+                0
+            ),
+            openApiSpecPath: runs[0]?.['metadata']?.['openApiSpecPath'],
+            content: runs
+                .map(
+                    (r) =>
+                        `## ${r['metadata']?.['moduleName']}\n\n${r['content']}`
+                )
+                .join('\n\n'),
+        }
+
+        return combinedRun
+    }
 }

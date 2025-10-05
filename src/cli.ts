@@ -601,6 +601,13 @@ function getAPIKeyFromEnv(provider: string): string {
     }
 }
 
+// Generate unique run ID for versioning
+function generateRunId(): string {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+    const random = Math.random().toString(36).substring(2, 8)
+    return `run-${timestamp}-${random}`
+}
+
 // Scalar + AI Integration Commands
 program
     .command('scalar-ai')
@@ -643,6 +650,7 @@ program
         'Output directory for chunks',
         'docs/chunks'
     )
+    .option('--save-to-db', 'Save AI documentation to MongoDB')
     .action(async (openApiPath, options) => {
         try {
             console.log(
@@ -679,6 +687,12 @@ program
                 ).join(', ')}`
             )
 
+            // Generate one run ID and chunk timestamp for the entire execution
+            const runId = generateRunId()
+            const chunkTimestamp = new Date().toISOString()
+            console.log(`🆔 Run ID: ${runId}`)
+            console.log(`⏰ Chunk Timestamp: ${chunkTimestamp}`)
+
             // Generate documentation for each chunk
             for (const [moduleName, moduleRoutes] of Object.entries(chunks)) {
                 console.log(
@@ -712,6 +726,45 @@ program
                 console.log(
                     `✅ ${moduleName} documentation saved to ${docPath}`
                 )
+
+                // Save to MongoDB if requested
+                if (options.saveToDb || config.database.enabled) {
+                    try {
+                        const dbAdapter = new MongoDBAdapter(config.database)
+                        await dbAdapter.connect()
+
+                        // Use the same run ID and chunk timestamp for all modules in this execution
+                        const timestamp = chunkTimestamp
+
+                        await dbAdapter.saveDocumentation({
+                            content: moduleDocs,
+                            source: 'scalar-ai-generation-chunked',
+                            provider: config.ai.provider,
+                            model: config.ai.model,
+                            timestamp: timestamp,
+                            runId: runId, // Add run ID for versioning
+                            metadata: {
+                                framework: aiInput.framework,
+                                moduleName: moduleName,
+                                totalRoutes: moduleRoutes.length,
+                                source: 'openapi',
+                                runId: runId,
+                                runTimestamp: timestamp,
+                                chunkTimestamp: chunkTimestamp,
+                                openApiSpecPath: openApiPath,
+                            },
+                        })
+                        await dbAdapter.disconnect()
+                        console.log(
+                            `💾 ${moduleName} documentation saved to MongoDB (Run ID: ${runId})`
+                        )
+                    } catch (error) {
+                        console.warn(
+                            `⚠️ MongoDB save failed for ${moduleName}:`,
+                            error
+                        )
+                    }
+                }
             }
 
             console.log(`🎉 Chunked documentation generation completed!`)
@@ -721,6 +774,82 @@ program
                 '❌ Scalar AI chunked documentation generation failed:',
                 error
             )
+            process.exit(1)
+        }
+    })
+
+// Run management commands
+program
+    .command('runs:list')
+    .description('List all documentation generation runs')
+    .option('--limit <number>', 'Limit number of runs to show', '10')
+    .action(async (options) => {
+        try {
+            const config = configManager.getConfig()
+            const dbAdapter = new MongoDBAdapter(config.database)
+            await dbAdapter.connect()
+
+            // Get runs from database
+            const runs = await dbAdapter.getRuns(parseInt(options.limit))
+
+            console.log(`📊 Found ${runs.length} documentation runs:`)
+            console.log('')
+
+            runs.forEach((run, index) => {
+                console.log(`${index + 1}. Run ID: ${run.runId}`)
+                console.log(`   📅 Date: ${run.timestamp}`)
+                console.log(
+                    `   ⏰ Chunk Time: ${run.chunkTimestamp || 'Unknown'}`
+                )
+                console.log(`   🤖 Provider: ${run.provider}/${run.model}`)
+                console.log(
+                    `   📝 Modules: ${run.modules?.join(', ') || 'Unknown'}`
+                )
+                console.log(
+                    `   📊 Total Routes: ${run.totalRoutes || 'Unknown'}`
+                )
+                console.log('')
+            })
+
+            await dbAdapter.disconnect()
+        } catch (error) {
+            console.error('❌ Failed to list runs:', error)
+            process.exit(1)
+        }
+    })
+
+program
+    .command('runs:show <runId>')
+    .description('Show details of a specific run')
+    .action(async (runId) => {
+        try {
+            const config = configManager.getConfig()
+            const dbAdapter = new MongoDBAdapter(config.database)
+            await dbAdapter.connect()
+
+            const run = await dbAdapter.getRunById(runId)
+
+            if (!run) {
+                console.error(`❌ Run not found: ${runId}`)
+                process.exit(1)
+            }
+
+            console.log(`📊 Run Details: ${runId}`)
+            console.log('')
+            console.log(`📅 Date: ${run.timestamp}`)
+            console.log(`⏰ Chunk Time: ${run.chunkTimestamp || 'Unknown'}`)
+            console.log(`🤖 Provider: ${run.provider}/${run.model}`)
+            console.log(`📝 Source: ${run.source}`)
+            console.log(`📊 Total Routes: ${run.totalRoutes || 'Unknown'}`)
+            console.log(`📁 Modules: ${run.modules?.join(', ') || 'Unknown'}`)
+            console.log(`🔗 OpenAPI Spec: ${run.openApiSpecPath || 'Unknown'}`)
+            console.log('')
+            console.log('📄 Documentation:')
+            console.log(run.content.substring(0, 500) + '...')
+
+            await dbAdapter.disconnect()
+        } catch (error) {
+            console.error('❌ Failed to show run:', error)
             process.exit(1)
         }
     })
