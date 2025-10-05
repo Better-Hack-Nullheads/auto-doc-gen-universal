@@ -1,0 +1,329 @@
+{
+  "framework": "nestjs",
+  "routes": [
+    {
+      "path": "/users",
+      "method": "GET",
+      "handler": "getUsers",
+      "parameters": [],
+      "responses": {
+        "200": {
+          "description": "List of users",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          }
+        }
+      },
+      "summary": "Get all users",
+      "description": "",
+      "tags": [
+        "users"
+      ],
+      "framework": "nestjs",
+      "source": "openapi"
+    },
+    {
+      "path": "/users",
+      "method": "POST",
+      "handler": "createUser",
+      "parameters": [],
+      "responses": {
+        "201": {
+          "description": "User created successfully",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/User"
+              }
+            }
+          }
+        }
+      },
+      "summary": "Create a new user",
+      "description": "",
+      "tags": [
+        "users"
+      ],
+      "framework": "nestjs",
+      "source": "openapi"
+    },
+    {
+      "path": "/users/{id}",
+      "method": "GET",
+      "handler": "getUserById",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "optional": false,
+          "decorator": "Param",
+          "description": ""
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "User found",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/User"
+              }
+            }
+          }
+        }
+      },
+      "summary": "Get user by ID",
+      "description": "",
+      "tags": [
+        "users"
+      ],
+      "framework": "nestjs",
+      "source": "openapi"
+    },
+    {
+      "path": "/products",
+      "method": "GET",
+      "handler": "getProducts",
+      "parameters": [],
+      "responses": {
+        "200": {
+          "description": "List of products",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Product"
+                }
+              }
+            }
+          }
+        }
+      },
+      "summary": "Get all products",
+      "description": "",
+      "tags": [
+        "products"
+      ],
+      "framework": "nestjs",
+      "source": "openapi"
+    }
+  ],
+  "controllers": [
+    {
+      "name": "usersController",
+      "routes": [
+        {
+          "path": "/users",
+          "method": "GET",
+          "handler": "getUsers",
+          "parameters": [],
+          "responses": {
+            "200": {
+              "description": "List of users",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "summary": "Get all users",
+          "description": "",
+          "tags": [
+            "users"
+          ],
+          "framework": "nestjs",
+          "source": "openapi"
+        },
+        {
+          "path": "/users",
+          "method": "POST",
+          "handler": "createUser",
+          "parameters": [],
+          "responses": {
+            "201": {
+              "description": "User created successfully",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/User"
+                  }
+                }
+              }
+            }
+          },
+          "summary": "Create a new user",
+          "description": "",
+          "tags": [
+            "users"
+          ],
+          "framework": "nestjs",
+          "source": "openapi"
+        },
+        {
+          "path": "/users/{id}",
+          "method": "GET",
+          "handler": "getUserById",
+          "parameters": [
+            {
+              "name": "id",
+              "type": "string",
+              "optional": false,
+              "decorator": "Param",
+              "description": ""
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "User found",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/User"
+                  }
+                }
+              }
+            }
+          },
+          "summary": "Get user by ID",
+          "description": "",
+          "tags": [
+            "users"
+          ],
+          "framework": "nestjs",
+          "source": "openapi"
+        }
+      ],
+      "framework": "nestjs",
+      "filePath": "src/users/users.controller.ts"
+    },
+    {
+      "name": "productsController",
+      "routes": [
+        {
+          "path": "/products",
+          "method": "GET",
+          "handler": "getProducts",
+          "parameters": [],
+          "responses": {
+            "200": {
+              "description": "List of products",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Product"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "summary": "Get all products",
+          "description": "",
+          "tags": [
+            "products"
+          ],
+          "framework": "nestjs",
+          "source": "openapi"
+        }
+      ],
+      "framework": "nestjs",
+      "filePath": "src/products/products.controller.ts"
+    }
+  ],
+  "services": [],
+  "types": [
+    {
+      "name": "User",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "firstName": {
+          "type": "string"
+        },
+        "lastName": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string",
+          "format": "email"
+        }
+      },
+      "required": [
+        "id",
+        "firstName",
+        "lastName",
+        "email"
+      ],
+      "type": "object",
+      "description": ""
+    },
+    {
+      "name": "CreateUserDto",
+      "properties": {
+        "firstName": {
+          "type": "string"
+        },
+        "lastName": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string",
+          "format": "email"
+        }
+      },
+      "required": [
+        "firstName",
+        "lastName",
+        "email"
+      ],
+      "type": "object",
+      "description": ""
+    },
+    {
+      "name": "Product",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "price": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "price"
+      ],
+      "type": "object",
+      "description": ""
+    }
+  ],
+  "metadata": {
+    "totalRoutes": 4,
+    "totalControllers": 2,
+    "totalServices": 0,
+    "totalTypes": 3,
+    "analysisTime": 0,
+    "source": "openapi"
+  }
+}

@@ -33,6 +33,7 @@
         "@ai-sdk/anthropic": "^1.0.0",
         "@ai-sdk/google": "^1.0.0",
         "@ai-sdk/openai": "^1.0.0",
+        "@auto-doc-gen/universal": "file:auto-doc-gen-universal-1.0.0.tgz",
         "ai": "^3.0.0",
         "commander": "^11.0.0",
         "dotenv": "^17.2.3",

@@ -642,17 +642,26 @@ program
     })
 
 program
-    .command('scalar-ai-chunks')
-    .description('Generate chunked AI documentation from Scalar OpenAPI spec')
-    .argument('<openapi-path>', 'Path to OpenAPI spec file')
+    .command('generate')
+    .description(
+        'Generate chunked AI documentation from Scalar OpenAPI spec (default command)'
+    )
+    .argument(
+        '[openapi-path]',
+        'Path to OpenAPI spec file (default: test-openapi.json)'
+    )
     .option(
         '-o, --output-dir <dir>',
         'Output directory for chunks',
-        'docs/chunks'
+        'docs/test'
     )
-    .option('--save-to-db', 'Save AI documentation to MongoDB')
+    .option('--save-to-db', 'Save AI documentation to MongoDB', true)
     .action(async (openApiPath, options) => {
         try {
+            // Use default OpenAPI path if not provided
+            const apiPath =
+                openApiPath || '../auto-doc-gen-universal/test-openapi.json'
+
             console.log(
                 '🤖 Generating chunked AI documentation from Scalar OpenAPI spec...'
             )
@@ -662,7 +671,7 @@ program
             const scalarAIService = new ScalarAIService(aiService)
 
             // Get transformed data from OpenAPI spec
-            const aiInput = scalarAIService.getTransformedData(openApiPath)
+            const aiInput = scalarAIService.getTransformedData(apiPath)
 
             // Create output directory
             const outputDir = options.outputDir || 'docs/chunks'
@@ -675,7 +684,7 @@ program
                 outputDir,
                 'scalar-transformed-data.json'
             )
-            scalarAIService.saveTransformedData(openApiPath, scalarDataPath)
+            scalarAIService.saveTransformedData(apiPath, scalarDataPath)
             console.log(`💾 Scalar transformed data saved to ${scalarDataPath}`)
 
             // Use Scalar's controller-based grouping (from OpenAPI tags)
@@ -751,7 +760,7 @@ program
                                 runId: runId,
                                 runTimestamp: timestamp,
                                 chunkTimestamp: chunkTimestamp,
-                                openApiSpecPath: openApiPath,
+                                openApiSpecPath: apiPath,
                             },
                         })
                         await dbAdapter.disconnect()
