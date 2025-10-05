@@ -24,8 +24,37 @@ program
     .option('-c, --config <file>', 'Configuration file path')
     .option('--verbose', 'Verbose output')
     .hook('preAction', (thisCommand) => {
-        // Load config file if specified
+        // Skip config check for config command itself
+        const args = process.argv.slice(2)
+        if (args[0] === 'config') {
+            return
+        }
+
+        // Check if config file exists
         const configFile = thisCommand.getOptionValue('config')
+        const configPaths = [
+            configFile,
+            './autodocgen.config.json',
+            './.autodocgen.json',
+            './autodocgen.json',
+        ].filter(Boolean) as string[]
+
+        const configExists = configPaths.some((path) => existsSync(path))
+
+        if (!configExists) {
+            console.log('❌ No configuration file found!')
+            console.log('')
+            console.log('📋 Please create a configuration file first:')
+            console.log('   npx @auto-doc-gen/universal config')
+            console.log('')
+            console.log(
+                '💡 This will generate autodocgen.config.json with default settings.'
+            )
+            console.log('   You can then edit it to match your needs.')
+            process.exit(1)
+        }
+
+        // Load config file if specified
         if (configFile) {
             configManager.loadConfigFile(configFile)
         } else {
@@ -174,28 +203,42 @@ program
 program
     .command('config')
     .description('Generate configuration file for auto-doc-gen')
-    .option('-o, --output <file>', 'Output configuration file path', 'autodocgen.config.json')
-    .option('--template <template>', 'Configuration template (basic, full, minimal)', 'basic')
+    .option(
+        '-o, --output <file>',
+        'Output configuration file path',
+        'autodocgen.config.json'
+    )
+    .option(
+        '--template <template>',
+        'Configuration template (basic, full, minimal)',
+        'basic'
+    )
     .option('--interactive', 'Interactive configuration setup')
     .action((options) => {
         try {
             const configTemplate = generateConfigTemplate(options.template)
-            
+
             // Write config file
-            writeFileSync(options.output, JSON.stringify(configTemplate, null, 2))
-            
+            writeFileSync(
+                options.output,
+                JSON.stringify(configTemplate, null, 2)
+            )
+
             console.log(`✅ Configuration file generated: ${options.output}`)
             console.log('')
             console.log('📋 Next steps:')
             console.log('1. Edit the configuration file to match your needs')
-            console.log('2. Set your AI API key in the config or environment variables')
-            console.log('3. Run: auto-doc-gen-universal analyze <your-project-path>')
+            console.log(
+                '2. Set your AI API key in the config or environment variables'
+            )
+            console.log(
+                '3. Run: auto-doc-gen-universal analyze <your-project-path>'
+            )
             console.log('')
             console.log('🔑 Environment variables you can set:')
             console.log('   GOOGLE_AI_API_KEY=your_key_here')
             console.log('   OPENAI_API_KEY=your_key_here')
             console.log('   ANTHROPIC_API_KEY=your_key_here')
-            
         } catch (error) {
             console.error('❌ Failed to generate configuration:', error)
             process.exit(1)
@@ -205,17 +248,21 @@ program
 program
     .command('config:validate')
     .description('Validate configuration file')
-    .option('-c, --config <file>', 'Configuration file path', 'autodocgen.config.json')
+    .option(
+        '-c, --config <file>',
+        'Configuration file path',
+        'autodocgen.config.json'
+    )
     .action((options) => {
         try {
             const configManager = ConfigManager.getInstance()
-            
+
             // Load the config file
             configManager.loadConfigFile(options.config)
-            
+
             // Validate the configuration
             const validation = configManager.validateConfig()
-            
+
             if (validation.valid) {
                 console.log('✅ Configuration is valid!')
                 console.log('')
@@ -223,10 +270,20 @@ program
                 const config = configManager.getConfig()
                 console.log(`   AI Provider: ${config.ai.provider}`)
                 console.log(`   AI Model: ${config.ai.model}`)
-                console.log(`   API Key: ${config.ai.apiKey ? '✅ Set' : '❌ Not set'}`)
-                console.log(`   Database: ${config.database.enabled ? '✅ Enabled' : '❌ Disabled'}`)
+                console.log(
+                    `   API Key: ${config.ai.apiKey ? '✅ Set' : '❌ Not set'}`
+                )
+                console.log(
+                    `   Database: ${
+                        config.database.enabled ? '✅ Enabled' : '❌ Disabled'
+                    }`
+                )
                 console.log(`   Output Directory: ${config.files.outputDir}`)
-                console.log(`   Verbose Mode: ${config.verbose ? '✅ Enabled' : '❌ Disabled'}`)
+                console.log(
+                    `   Verbose Mode: ${
+                        config.verbose ? '✅ Enabled' : '❌ Disabled'
+                    }`
+                )
             } else {
                 console.log('❌ Configuration validation failed:')
                 console.log('')
@@ -923,7 +980,7 @@ function generateConfigTemplate(template: string): any {
             apiKey: '', // Will be loaded from environment variables
             temperature: 0.7,
             maxTokens: 4000,
-            customPrompt: undefined
+            customPrompt: undefined,
         },
         database: {
             enabled: false,
@@ -933,12 +990,12 @@ function generateConfigTemplate(template: string): any {
             collections: {
                 documentation: 'documentation',
                 endpoints: 'endpoints',
-                types: 'types'
+                types: 'types',
             },
             mapping: {
                 createCollections: true,
-                includeTypeSchemas: true
-            }
+                includeTypeSchemas: true,
+            },
         },
         files: {
             outputDir: './docs',
@@ -946,13 +1003,13 @@ function generateConfigTemplate(template: string): any {
             docsFilename: 'ai-analysis.md',
             saveRawAnalysis: true,
             saveAIDocs: true,
-            timestampFiles: true
+            timestampFiles: true,
         },
         framework: {
             autoDetect: true,
-            forceFramework: undefined
+            forceFramework: undefined,
         },
-        verbose: false
+        verbose: false,
     }
 
     switch (template) {
@@ -961,13 +1018,13 @@ function generateConfigTemplate(template: string): any {
                 ai: {
                     provider: 'google',
                     model: 'gemini-2.5-flash',
-                    apiKey: '' // Set via GOOGLE_AI_API_KEY environment variable
+                    apiKey: '', // Set via GOOGLE_AI_API_KEY environment variable
                 },
                 files: {
-                    outputDir: './docs'
-                }
+                    outputDir: './docs',
+                },
             }
-        
+
         case 'full':
             return {
                 ...baseConfig,
@@ -976,16 +1033,16 @@ function generateConfigTemplate(template: string): any {
                     includeComments: true,
                     includeImports: false,
                     includePrivateMethods: false,
-                    maxDepth: 5
+                    maxDepth: 5,
                 },
                 output: {
                     format: 'markdown',
                     includeExamples: true,
                     includeTypeDefinitions: true,
-                    groupByModule: true
-                }
+                    groupByModule: true,
+                },
             }
-        
+
         case 'basic':
         default:
             return baseConfig
