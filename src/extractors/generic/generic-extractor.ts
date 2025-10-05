@@ -36,11 +36,17 @@ export class GenericExtractor {
         for (const sourceFile of sourceFiles) {
             if (this.shouldSkipFile(sourceFile)) continue
 
-            // Extract routes from any pattern
-            routes.push(...this.extractRoutes(sourceFile))
+            // Extract controllers (classes with methods) - this gives us the most accurate routes
+            const fileControllers = this.extractControllers(sourceFile)
+            controllers.push(...fileControllers)
 
-            // Extract controllers (classes with methods)
-            controllers.push(...this.extractControllers(sourceFile))
+            // Extract routes from controllers (more accurate than regex)
+            fileControllers.forEach((controller) => {
+                routes.push(...controller.routes)
+            })
+
+            // Fallback: Extract routes from any pattern for non-controller routes
+            routes.push(...this.extractRoutes(sourceFile))
 
             // Extract services (classes with business logic)
             services.push(...this.extractServices(sourceFile))
@@ -288,7 +294,7 @@ export class GenericExtractor {
 
     private extractRouteFromMethod(
         method: MethodDeclaration,
-        _classDecl: ClassDeclaration
+        classDecl: ClassDeclaration
     ): UniversalRoute | null {
         const decorators = method.getDecorators()
         const routeDecorator = decorators.find((d) =>
@@ -301,13 +307,30 @@ export class GenericExtractor {
 
         const methodName = routeDecorator.getName().toUpperCase()
         const args = routeDecorator.getArguments()
-        const path =
+        const routePath =
             args.length > 0
                 ? args[0]?.getText().replace(/['"]/g, '') || '/'
                 : '/'
 
+        // Get controller base path
+        const controllerDecorator = classDecl
+            .getDecorators()
+            .find((d) => d.getName() === 'Controller')
+        const controllerArgs = controllerDecorator?.getArguments()
+        const basePath =
+            controllerArgs && controllerArgs.length > 0
+                ? controllerArgs[0]?.getText().replace(/['"]/g, '') || ''
+                : ''
+
+        // Combine base path with route path
+        const fullPath = basePath
+            ? `/${basePath}${
+                  routePath === '/' ? '' : '/' + routePath.replace(/^\//, '')
+              }`
+            : routePath
+
         return {
-            path,
+            path: fullPath,
             method: methodName,
             handler: method.getName(),
             middleware: [],

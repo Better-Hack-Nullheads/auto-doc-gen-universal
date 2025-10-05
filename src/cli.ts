@@ -8,6 +8,8 @@ import { ConfigManager } from './config/config'
 import { FrameworkDetector } from './core/framework-detector'
 import { UniversalAnalyzer } from './core/universal-analyzer'
 import { AIService } from './services/ai-service'
+import { ScalarAIService } from './services/scalar-ai-service'
+import { ScalarPromptTemplates } from './utils/scalar-prompt-templates'
 
 // Environment variables loaded by ConfigManager
 
@@ -322,7 +324,7 @@ async function generateChunkedAIDocumentation(
         const chunks = groupRoutesByController(
             analysisData.routes,
             analysisData.services,
-            analysisData.types
+            analysisData.controllers
         )
 
         console.log(
@@ -428,134 +430,97 @@ function getRelatedTypes(moduleName: string, types: any[]): any[] {
 function groupRoutesByController(
     routes: any[],
     services: any[] = [],
-    types: any[] = []
+    controllers: any[] = []
 ): Record<string, any[]> {
     const chunks: Record<string, any[]> = {}
 
-    // First, extract module names from services and types
-    const detectedModules = new Set<string>()
-
-    // Extract modules from service names
+    // Extract module names from services (most reliable source)
+    const serviceModules = new Map<string, string>()
     services.forEach((service) => {
         if (service.name) {
             const moduleName = extractModuleFromName(service.name)
             if (moduleName) {
-                detectedModules.add(moduleName)
+                serviceModules.set(moduleName, service.name)
             }
         }
     })
 
-    // Extract modules from type names
-    types.forEach((type) => {
-        if (type.name) {
-            const moduleName = extractModuleFromName(type.name)
+    console.log(
+        `🔍 Detected modules from services: ${Array.from(
+            serviceModules.keys()
+        ).join(', ')}`
+    )
+
+    // Group routes by controller (most accurate approach)
+    controllers.forEach((controller) => {
+        if (controller.name && controller.routes) {
+            const moduleName = extractModuleFromName(controller.name)
             if (moduleName) {
-                detectedModules.add(moduleName)
+                // Add all routes from this controller to the module
+                controller.routes.forEach((route: any) => {
+                    if (!chunks[moduleName]) {
+                        chunks[moduleName] = []
+                    }
+                    chunks[moduleName]!.push(route)
+                })
             }
         }
     })
 
-    // Group routes by detected modules or fallback to generic grouping
-    routes.forEach((route) => {
-        let moduleName = 'unknown'
+    // If no controllers found, fallback to the old logic
+    if (Object.keys(chunks).length === 0) {
+        routes.forEach((route, index) => {
+            let moduleName = 'unknown'
 
-        // Strategy 1: Try to match against detected modules
-        for (const detectedModule of detectedModules) {
-            if (
-                route.handler &&
-                route.handler
+            // Strategy 1: Match routes to services based on handler patterns
+            for (const [module, serviceName] of serviceModules) {
+                const serviceBase = serviceName
+                    .replace(/(Service|Controller)$/i, '')
                     .toLowerCase()
-                    .includes(detectedModule.toLowerCase())
-            ) {
-                moduleName = detectedModule
-                break
-            }
-            if (
-                route.path &&
-                route.path.toLowerCase().includes(detectedModule.toLowerCase())
-            ) {
-                moduleName = detectedModule
-                break
-            }
-        }
 
-        // Strategy 2: Try to extract from handler name using generic patterns
-        if (moduleName === 'unknown' && route.handler) {
-            const handlerLower = route.handler.toLowerCase()
-            // Look for common CRUD patterns
-            if (
-                handlerLower.includes('create') ||
-                handlerLower.includes('add')
-            ) {
-                moduleName = 'create'
-            } else if (
-                handlerLower.includes('find') ||
-                handlerLower.includes('get') ||
-                handlerLower.includes('list')
-            ) {
-                moduleName = 'read'
-            } else if (
-                handlerLower.includes('update') ||
-                handlerLower.includes('edit') ||
-                handlerLower.includes('modify')
-            ) {
-                moduleName = 'update'
-            } else if (
-                handlerLower.includes('delete') ||
-                handlerLower.includes('remove')
-            ) {
-                moduleName = 'delete'
-            } else if (
-                handlerLower.includes('hello') ||
-                handlerLower.includes('health') ||
-                handlerLower.includes('status')
-            ) {
-                moduleName = 'app'
-            }
-        }
-
-        // Strategy 3: Try to extract from path structure
-        if (moduleName === 'unknown' && route.path) {
-            const pathSegments = route.path.split('/').filter(Boolean)
-            if (pathSegments.length > 0) {
-                // Skip parameter segments like :id
-                const validSegments = pathSegments.filter(
-                    (segment: string) => !segment.startsWith(':')
-                )
-                if (validSegments.length > 0) {
-                    moduleName = validSegments[0]
+                if (
+                    route.handler &&
+                    route.handler.toLowerCase().includes(serviceBase)
+                ) {
+                    moduleName = module
+                    break
                 }
             }
-        }
 
-        // Strategy 4: Group by HTTP method patterns
-        if (moduleName === 'unknown') {
-            if (
-                route.method === 'GET' &&
-                (route.path === '/' || route.path === '')
-            ) {
-                moduleName = 'app'
-            } else if (route.method === 'POST') {
-                moduleName = 'create'
-            } else if (route.method === 'GET') {
-                moduleName = 'read'
-            } else if (route.method === 'PATCH' || route.method === 'PUT') {
-                moduleName = 'update'
-            } else if (route.method === 'DELETE') {
-                moduleName = 'delete'
-            } else {
-                moduleName = 'misc'
+            // Strategy 2: Match by path patterns
+            if (moduleName === 'unknown') {
+                if (route.path === '/' || route.path === '') {
+                    moduleName = 'apps'
+                } else if (route.path && route.path.includes('email')) {
+                    moduleName = 'users'
+                } else if (
+                    route.path &&
+                    (route.path.includes('activate') ||
+                        route.path.includes('deactivate'))
+                ) {
+                    moduleName = 'users'
+                } else {
+                    // Strategy 3: Use route position as last resort
+                    const routeGroup = Math.floor(index / 3)
+                    const moduleNames = Array.from(serviceModules.keys())
+
+                    if (routeGroup < moduleNames.length) {
+                        moduleName = moduleNames[routeGroup] || 'apps'
+                    } else {
+                        moduleName = 'apps'
+                    }
+                }
             }
-        }
 
-        // Sanitize module name for file system
-        moduleName = moduleName.replace(/[^a-zA-Z0-9-_]/g, '_')
+            // Sanitize module name for file system
+            moduleName = moduleName.replace(/[^a-zA-Z0-9-_]/g, '_')
 
-        if (!chunks[moduleName]) {
-            chunks[moduleName] = []
-        }
-        chunks[moduleName]!.push(route)
-    })
+            if (!chunks[moduleName]) {
+                chunks[moduleName] = []
+            }
+            chunks[moduleName]!.push(route)
+        })
+    }
 
     return chunks
 }
@@ -603,5 +568,96 @@ function getAPIKeyFromEnv(provider: string): string {
             return ''
     }
 }
+
+// Scalar + AI Integration Commands
+program
+    .command('scalar-ai')
+    .description('Generate AI documentation from Scalar OpenAPI spec')
+    .argument('<openapi-path>', 'Path to OpenAPI spec file')
+    .option('-o, --output <file>', 'Output file path')
+    .action(async (openApiPath, options) => {
+        try {
+            console.log('🤖 Generating AI documentation from Scalar OpenAPI spec...')
+            
+            const config = configManager.getConfig()
+            const aiService = new AIService(config.ai)
+            const scalarAIService = new ScalarAIService(aiService)
+            
+            const enhancedDocs = await scalarAIService.generateEnhancedDocs(openApiPath)
+            
+            const outputPath = options.output || 'docs/scalar-ai-docs.md'
+            writeFileSync(outputPath, enhancedDocs)
+            
+            console.log(`✅ Enhanced documentation saved to ${outputPath}`)
+        } catch (error) {
+            console.error('❌ Scalar AI documentation generation failed:', error)
+            process.exit(1)
+        }
+    })
+
+program
+    .command('scalar-ai-chunks')
+    .description('Generate chunked AI documentation from Scalar OpenAPI spec')
+    .argument('<openapi-path>', 'Path to OpenAPI spec file')
+    .option('-o, --output-dir <dir>', 'Output directory for chunks', 'docs/chunks')
+    .action(async (openApiPath, options) => {
+        try {
+            console.log('🤖 Generating chunked AI documentation from Scalar OpenAPI spec...')
+            
+            const config = configManager.getConfig()
+            const aiService = new AIService(config.ai)
+            const scalarAIService = new ScalarAIService(aiService)
+            
+            // Get transformed data from OpenAPI spec
+            const aiInput = scalarAIService.getTransformedData(openApiPath)
+            
+            // Create output directory
+            const outputDir = options.outputDir || 'docs/chunks'
+            if (!existsSync(outputDir)) {
+                mkdirSync(outputDir, { recursive: true })
+            }
+            
+            // Group routes by controller (using existing logic)
+            const chunks = groupRoutesByController(
+                aiInput.routes,
+                aiInput.services,
+                aiInput.controllers
+            )
+            
+            console.log(`📊 Found ${Object.keys(chunks).length} modules: ${Object.keys(chunks).join(', ')}`)
+            
+            // Generate documentation for each chunk
+            for (const [moduleName, moduleRoutes] of Object.entries(chunks)) {
+                console.log(`📝 Generating documentation for ${moduleName} module...`)
+                
+                const moduleData = {
+                    ...aiInput,
+                    routes: moduleRoutes,
+                    metadata: { ...aiInput.metadata, moduleName }
+                }
+                
+                // Use enhanced prompt for OpenAPI data
+                const enhancedPrompt = ScalarPromptTemplates.buildChunkedOpenAPIPrompt(moduleData)
+                const moduleDocs = await aiService.generateDocumentation(enhancedPrompt)
+                
+                // Save documentation
+                const docPath = join(outputDir, `${moduleName}.md`)
+                writeFileSync(docPath, moduleDocs)
+                
+                // Save analysis data
+                const analysisPath = join(outputDir, `${moduleName}-analysis.json`)
+                writeFileSync(analysisPath, JSON.stringify(moduleData, null, 2))
+                
+                console.log(`✅ ${moduleName} documentation saved to ${docPath}`)
+            }
+            
+            console.log(`🎉 Chunked documentation generation completed!`)
+            console.log(`📁 Output directory: ${outputDir}`)
+            
+        } catch (error) {
+            console.error('❌ Scalar AI chunked documentation generation failed:', error)
+            process.exit(1)
+        }
+    })
 
 program.parse()

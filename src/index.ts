@@ -9,5 +9,4 @@ export { GenericExtractor } from './extractors/generic/generic-extractor'
 export { AIService } from './services/ai-service'
 export { PromptTemplates } from './utils/prompt-templates'
 
-export * from './types/ai.types'
 export * from './types/universal-types'

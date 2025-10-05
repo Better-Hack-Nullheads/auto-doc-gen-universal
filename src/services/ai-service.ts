@@ -2,7 +2,7 @@ import { anthropic } from '@ai-sdk/anthropic'
 import { google } from '@ai-sdk/google'
 import { openai } from '@ai-sdk/openai'
 import { generateText } from 'ai'
-import { AIConfig } from '../types/ai.types'
+import { AIConfig } from '../config/config'
 import { PromptTemplates } from '../utils/prompt-templates'
 
 export class AIService {
@@ -14,15 +14,14 @@ export class AIService {
 
     async analyzeProject(analysisData: any): Promise<string> {
         const prompt = this.buildPrompt(analysisData)
+        return this.generateDocumentation(prompt)
+    }
+
+    async generateDocumentation(prompt: string): Promise<string> {
         const model = this.createModel()
 
         try {
             console.log('🔍 Sending request to AI...')
-            console.log(
-                `📊 Data summary: ${analysisData.routes?.length || 0} routes, ${
-                    analysisData.services?.length || 0
-                } services, ${analysisData.types?.length || 0} types`
-            )
 
             const result = await generateText({
                 model: model as any,
@@ -81,7 +80,7 @@ export class AIService {
 
     private buildPrompt(analysisData: any): string {
         // Use custom prompt if provided in config
-        if (this.config.customPrompt) {
+        if (this.config.customPrompt && this.config.customPrompt.trim()) {
             return PromptTemplates.buildPrompt(
                 this.config.customPrompt,
                 analysisData
