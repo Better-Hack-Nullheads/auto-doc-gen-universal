@@ -139,6 +139,37 @@ program
         }
     })
 
+program
+    .command('ai:chunks')
+    .description(
+        'Generate AI documentation in chunks for each module/controller'
+    )
+    .argument('<input>', 'Analysis JSON file path')
+    .option('-o, --output-dir <dir>', 'Output directory for chunked docs')
+    .option('--provider <provider>', 'AI provider (google, openai, anthropic)')
+    .option('--model <model>', 'AI model to use')
+    .option('--api-key <key>', 'AI API key')
+    .option(
+        '--template <template>',
+        'Prompt template (default, security, performance, architecture)'
+    )
+    .option('--save-to-db', 'Save AI documentation to MongoDB')
+    .action(async (input, options) => {
+        try {
+            if (!existsSync(input)) {
+                console.error(`❌ Analysis file not found: ${input}`)
+                process.exit(1)
+            }
+
+            const config = configManager.getConfig()
+            const analysisData = JSON.parse(readFileSync(input, 'utf-8'))
+            await generateChunkedAIDocumentation(analysisData, options, config)
+        } catch (error) {
+            console.error('❌ Chunked AI generation failed:', error)
+            process.exit(1)
+        }
+    })
+
 // Configuration commands removed - handled by consuming projects
 
 program
@@ -247,6 +278,210 @@ async function generateAIDocumentation(
         console.error('❌ AI documentation generation failed:', error)
         throw error
     }
+}
+
+async function generateChunkedAIDocumentation(
+    analysisData: any,
+    options: any,
+    config: any
+) {
+    try {
+        // Merge options with config and environment variables
+        const aiConfig = {
+            provider: options.provider || config.ai.provider,
+            model: options.model || config.ai.model,
+            apiKey:
+                options.apiKey ||
+                config.ai.apiKey ||
+                getAPIKeyFromEnv(config.ai.provider),
+            temperature: config.ai.temperature,
+            maxTokens: config.ai.maxTokens,
+        }
+
+        if (!aiConfig.apiKey) {
+            console.error(
+                '❌ AI API key required. Set via --api-key, environment variable, or config file.'
+            )
+            process.exit(1)
+        }
+
+        console.log(
+            `🤖 Generating chunked AI documentation with ${aiConfig.provider}/${aiConfig.model}...`
+        )
+
+        const aiService = new AIService(aiConfig)
+
+        // Create output directory for chunks
+        const outputDir =
+            options.outputDir || join(config.files.outputDir, 'chunks')
+        if (!existsSync(outputDir)) {
+            mkdirSync(outputDir, { recursive: true })
+        }
+
+        // Group routes by controller/module
+        const chunks = groupRoutesByController(analysisData.routes)
+
+        console.log(
+            `📦 Found ${Object.keys(chunks).length} modules to document`
+        )
+
+        // Generate documentation for each chunk
+        for (const [moduleName, moduleData] of Object.entries(chunks)) {
+            console.log(`📝 Generating documentation for ${moduleName}...`)
+
+            // Get related services and types for this module
+            const relatedServices = getRelatedServices(
+                moduleName,
+                analysisData.services
+            )
+            const relatedTypes = getRelatedTypes(moduleName, analysisData.types)
+
+            const chunkData = {
+                ...analysisData,
+                routes: moduleData,
+                services: relatedServices,
+                types: relatedTypes,
+                metadata: {
+                    ...analysisData.metadata,
+                    totalRoutes: moduleData.length,
+                    totalServices: relatedServices.length,
+                    totalTypes: relatedTypes.length,
+                    moduleName: moduleName,
+                },
+            }
+
+            // Save JSON analysis for this chunk
+            const jsonFile = join(outputDir, `${moduleName}-analysis.json`)
+            writeFileSync(jsonFile, JSON.stringify(chunkData, null, 2))
+            console.log(`💾 ${moduleName} analysis saved to ${jsonFile}`)
+
+            const documentation = await aiService.analyzeProject(chunkData)
+
+            // Generate output filename for this chunk (no timestamp - overwrite)
+            const outputFile = join(outputDir, `${moduleName}.md`)
+
+            writeFileSync(outputFile, documentation)
+            console.log(`✅ ${moduleName} documentation saved to ${outputFile}`)
+
+            // Save to MongoDB if requested
+            if (options.saveToDb || config.database.enabled) {
+                try {
+                    const dbAdapter = new MongoDBAdapter(config.database)
+                    await dbAdapter.connect()
+                    await dbAdapter.saveDocumentation({
+                        content: documentation,
+                        source: 'ai-generation-chunked',
+                        provider: aiConfig.provider,
+                        model: aiConfig.model,
+                        timestamp: new Date().toISOString(),
+                        metadata: {
+                            framework: analysisData.framework,
+                            moduleName: moduleName,
+                            totalRoutes: moduleData.length,
+                        },
+                    })
+                    await dbAdapter.disconnect()
+                } catch (error) {
+                    console.warn(
+                        `⚠️ MongoDB save failed for ${moduleName}:`,
+                        error
+                    )
+                }
+            }
+        }
+
+        console.log(
+            `🎉 Generated ${
+                Object.keys(chunks).length
+            } chunked documentation files in ${outputDir}`
+        )
+    } catch (error) {
+        console.error('❌ Chunked AI documentation generation failed:', error)
+        throw error
+    }
+}
+
+function getRelatedServices(moduleName: string, services: any[]): any[] {
+    return services.filter((service) => {
+        const serviceName = service.name.toLowerCase()
+        return (
+            serviceName.includes(moduleName.toLowerCase()) ||
+            (moduleName === 'app' && serviceName.includes('app'))
+        )
+    })
+}
+
+function getRelatedTypes(moduleName: string, types: any[]): any[] {
+    return types.filter((type) => {
+        const typeName = type.name.toLowerCase()
+        return (
+            typeName.includes(moduleName.toLowerCase()) ||
+            (moduleName === 'app' && typeName.includes('app'))
+        )
+    })
+}
+
+function groupRoutesByController(routes: any[]): Record<string, any[]> {
+    const chunks: Record<string, any[]> = {}
+
+    routes.forEach((route) => {
+        // Extract module name from route path or handler
+        let moduleName = 'unknown'
+
+        if (route.handler) {
+            // Try to extract from handler name (e.g., "findOne" -> "products")
+            if (route.handler.includes('Product')) {
+                moduleName = 'products'
+            } else if (route.handler.includes('User')) {
+                moduleName = 'users'
+            } else if (route.handler.includes('App')) {
+                moduleName = 'app'
+            }
+        }
+
+        // Fallback: group by common path patterns
+        if (moduleName === 'unknown') {
+            if (route.path && route.path.includes('email')) {
+                moduleName = 'users'
+            } else if (
+                route.path &&
+                (route.path.includes('activate') ||
+                    route.path.includes('deactivate'))
+            ) {
+                moduleName = 'users'
+            } else if (
+                route.path === '/' ||
+                route.path === '' ||
+                route.path === ':id'
+            ) {
+                moduleName = 'app'
+            } else {
+                // Try to infer from the route structure
+                const pathSegments = route.path.split('/').filter(Boolean)
+                if (pathSegments.length > 0) {
+                    // Skip parameter segments like :id
+                    const validSegments = pathSegments.filter(
+                        (segment: string) => !segment.startsWith(':')
+                    )
+                    if (validSegments.length > 0) {
+                        moduleName = validSegments[0]
+                    } else {
+                        moduleName = 'app'
+                    }
+                }
+            }
+        }
+
+        // Sanitize module name for file system
+        moduleName = moduleName.replace(/[^a-zA-Z0-9-_]/g, '_')
+
+        if (!chunks[moduleName]) {
+            chunks[moduleName] = []
+        }
+        chunks[moduleName]!.push(route)
+    })
+
+    return chunks
 }
 
 function getAPIKeyFromEnv(provider: string): string {
